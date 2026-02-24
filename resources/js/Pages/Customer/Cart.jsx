@@ -1,129 +1,102 @@
 import React, { useState, useEffect } from "react";
 import { Head, Link, router } from "@inertiajs/react"; 
 import { CartStore } from "@/Utils/CartStore"; 
-import { 
-    BiArrowBack, BiNote, BiTrash, BiMinus, BiPlus, BiPencil, BiRightArrowAlt, BiSolidDiscount
-} from "react-icons/bi";
+import { BiArrowBack, BiRightArrowAlt } from "react-icons/bi";
 import ProductDetailModal from '@/Components/ProductDetailModal';
 import { Toaster, toast } from "sonner"; 
+import { AnimatePresence } from "framer-motion";
 
-// Helper Rupiah
+// IMPORT KOMPONEN BARU
+import EmptyCart from "@/Components/Customer/Cart/EmptyCart";
+import CartItem from "@/Components/Customer/Cart/CartItem";
+import CartPromo from "@/Components/Customer/Cart/CartPromo";
+
 const formatRupiah = (number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(number);
 
 export default function Cart({ table, products }) {
+    // --- STATE ---
     const [cartItems, setCartItems] = useState([]);
-    
-    // STATE PROMO (BARU)
     const [activePromo, setActivePromo] = useState(null);
     const [discountAmount, setDiscountAmount] = useState(0);
-
-    // State Modal Edit
+    
+    // Modal Edit State
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState(null);
     const [editingCartItem, setEditingCartItem] = useState(null);
 
-    // Load Data
+    // --- EFFECTS ---
     useEffect(() => {
         loadCart();
-        loadPromo(); // Cek promo saat halaman dibuka
+        loadPromo();
     }, []);
 
-    const loadCart = () => {
-        const items = CartStore.getCart(table.table_number);
-        setCartItems(items);
-    };
+    useEffect(() => {
+        calculateDiscount();
+    }, [cartItems, activePromo]);
 
-    // --- LOGIKA LOAD PROMO DARI SAKU ---
+    // --- HELPERS ---
+    const loadCart = () => setCartItems(CartStore.getCart(table.table_number));
+    
     const loadPromo = () => {
-        const storedPromo = localStorage.getItem(`active_promo_${table.table_number}`);
-        if (storedPromo) {
-            setActivePromo(JSON.parse(storedPromo));
+        const stored = localStorage.getItem(`active_promo_${table.table_number}`);
+        if (stored) setActivePromo(JSON.parse(stored));
+    };
+
+    const calculateDiscount = () => {
+        const subtotal = cartItems.reduce((acc, item) => acc + (item.total_price_per_item * item.qty), 0);
+        
+        if (!activePromo || subtotal < activePromo.min_spend) {
+            setDiscountAmount(0);
+            return;
         }
+
+        let pot = activePromo.type === 'fixed' ? activePromo.discount_amount : subtotal * (activePromo.discount_amount / 100);
+        if (activePromo.max_discount && pot > activePromo.max_discount) pot = activePromo.max_discount;
+        
+        setDiscountAmount(Math.min(pot, subtotal));
     };
 
-    // --- LOGIKA HAPUS PROMO ---
-    const handleRemovePromo = () => {
-        localStorage.removeItem(`active_promo_${table.table_number}`);
-        setActivePromo(null);
-        setDiscountAmount(0);
-        toast.info("Promo dilepas.");
-    };
-
-    // Update Qty
-    const handleUpdateQty = (cartId, delta) => {
-        const updatedCart = CartStore.updateQty(table.table_number, cartId, delta);
-        setCartItems(updatedCart);
-    };
+    // --- HANDLERS ---
+    const handleUpdateQty = (cartId, delta) => setCartItems(CartStore.updateQty(table.table_number, cartId, delta));
 
     const handleRemoveItem = (cartId) => {
-        toast("Yakin ingin menghapus menu ini?", {
-            description: "Menu akan hilang dari keranjangmu.",
+        toast("Hapus menu ini?", {
             action: {
-                label: "Ya, Hapus",
+                label: "Ya",
                 onClick: () => {
-                    const updatedCart = CartStore.removeItem(table.table_number, cartId);
-                    setCartItems(updatedCart);
-                    toast.success("Menu berhasil dihapus.");
+                    setCartItems(CartStore.removeItem(table.table_number, cartId));
+                    toast.success("Menu dihapus.");
                 }
             },
             cancel: { label: "Batal" }
         });
     };
 
-    const handleEditItem = (cartItem) => {
-        const originalProduct = products.find(p => p.id === cartItem.product_id);
-        if (originalProduct) {
-            setEditingProduct(originalProduct);
-            setEditingCartItem(cartItem);
+    const handleEditItem = (item) => {
+        const product = products.find(p => p.id === item.product_id);
+        if (product) {
+            setEditingProduct(product);
+            setEditingCartItem(item);
             setIsModalOpen(true);
         }
     };
 
-    const handleSaveEdit = (product, qty, note, selectedVariants) => {
+    const handleSaveEdit = (p, q, n, v) => {
         if (editingCartItem) CartStore.removeItem(table.table_number, editingCartItem.cart_id);
-        CartStore.addItem(table.table_number, product, qty, note, selectedVariants);
+        CartStore.addItem(table.table_number, p, q, n, v);
         loadCart();
         setIsModalOpen(false);
-        setEditingProduct(null);
-        setEditingCartItem(null);
-        toast.success("Pesanan berhasil diupdate!");
+        toast.success("Pesanan diupdate!");
     };
 
-    // --- HITUNG TOTAL & DISKON (LOGIC UTAMA) ---
+    const handleRemovePromo = () => {
+        localStorage.removeItem(`active_promo_${table.table_number}`);
+        setActivePromo(null);
+        toast.info("Promo dilepas.");
+    };
+
+    // --- RENDER ---
     const subtotal = cartItems.reduce((acc, item) => acc + (item.total_price_per_item * item.qty), 0);
-    
-    // Hitung Diskon Real-time setiap ada perubahan subtotal/promo
-    useEffect(() => {
-        if (!activePromo) {
-            setDiscountAmount(0);
-            return;
-        }
-
-        // Cek Min Spend
-        if (subtotal < activePromo.min_spend) {
-            setDiscountAmount(0); // Belum memenuhi syarat
-            return;
-        }
-
-        let potongan = 0;
-        if (activePromo.type === 'fixed') {
-            potongan = activePromo.discount_amount;
-        } else {
-            // Persentase
-            potongan = subtotal * (activePromo.discount_amount / 100);
-            // Cek Max Discount
-            if (activePromo.max_discount && potongan > activePromo.max_discount) {
-                potongan = activePromo.max_discount;
-            }
-        }
-        
-        // Pastikan tidak minus
-        setDiscountAmount(Math.min(potongan, subtotal));
-
-    }, [subtotal, activePromo]);
-
-    // Total Akhir setelah diskon (Sebelum Pajak)
-    // Note: Biasanya pajak dihitung SETELAH diskon
     const totalAfterDiscount = subtotal - discountAmount;
 
     return (
@@ -137,83 +110,40 @@ export default function Cart({ table, products }) {
                     <BiArrowBack className="text-xl text-slate-700" />
                 </Link>
                 <div>
-                    <h1 className="text-lg font-bold text-slate-900 leading-none">Keranjang Pesanan</h1>
+                    <h1 className="text-lg font-bold text-slate-900 leading-none">Keranjang</h1>
                     <span className="text-xs text-slate-500">Meja {table.table_number}</span>
                 </div>
             </header>
 
             <main className="p-6 space-y-6">
                 {cartItems.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center pt-20 text-center">
-                        <div className="w-32 h-32 bg-gray-100 rounded-full flex items-center justify-center mb-6 text-4xl">🛒</div>
-                        <h2 className="text-xl font-bold text-slate-800">Keranjang Kosong</h2>
-                        <Link href={route('customer.menu', table.table_number)}>
-                            <button className="bg-slate-900 text-white px-8 py-3 rounded-xl font-bold shadow-lg mt-4">Lihat Menu</button>
-                        </Link>
-                    </div>
+                    <EmptyCart tableNumber={table.table_number} />
                 ) : (
-                    <div className="space-y-4">
-                        {cartItems.map((item) => (
-                            <div key={item.cart_id} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex gap-4">
-                                <div className="w-20 h-20 rounded-xl bg-gray-100 overflow-hidden shrink-0">
-                                    <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
-                                </div>
-                                <div className="flex-1 flex flex-col justify-between">
-                                    <div className="flex justify-between items-start">
-                                        <div>
-                                            <h3 className="font-bold text-sm text-slate-800 line-clamp-1">{item.name}</h3>
-                                            {item.variants?.length > 0 && (
-                                                <div className="flex flex-wrap gap-1 mt-1">
-                                                    {item.variants.map((v, idx) => <span key={idx} className="text-[10px] bg-gray-50 text-gray-500 px-1.5 py-0.5 rounded border border-gray-200">{v.item_name}</span>)}
-                                                </div>
-                                            )}
-                                            {item.note && <div className="text-[10px] text-orange-600 italic mt-1"><BiNote className="inline"/> "{item.note}"</div>}
-                                        </div>
-                                        <button onClick={() => handleRemoveItem(item.cart_id)} className="text-gray-400 hover:text-red-500 p-1"><BiTrash /></button>
-                                    </div>
-                                    <div className="flex justify-between items-end mt-2">
-                                        <div>
-                                            <span className="text-sm font-bold text-slate-900 block">{formatRupiah(item.total_price_per_item * item.qty)}</span>
-                                            <button onClick={() => handleEditItem(item)} className="text-[10px] font-bold text-orange-500 flex items-center gap-1 mt-1"><BiPencil /> Edit</button>
-                                        </div>
-                                        <div className="flex items-center gap-3 bg-gray-50 rounded-lg p-1">
-                                            <button onClick={() => handleUpdateQty(item.cart_id, -1)} className="w-6 h-6 rounded bg-white shadow-sm flex items-center justify-center text-xs"><BiMinus/></button>
-                                            <span className="text-xs font-bold w-4 text-center">{item.qty}</span>
-                                            <button onClick={() => handleUpdateQty(item.cart_id, 1)} className="w-6 h-6 rounded bg-slate-900 text-white flex items-center justify-center text-xs"><BiPlus/></button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-
-                {/* --- BAGIAN PROMO --- */}
-                {cartItems.length > 0 && (
-                    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-                        <div className="flex justify-between items-center mb-3">
-                            <h3 className="font-bold text-sm flex items-center gap-2"><BiSolidDiscount className="text-orange-500"/> Voucher & Promo</h3>
-                            <Link href={route('customer.promos', table.table_number)} className="text-xs text-orange-600 font-bold hover:underline">Lihat Semua</Link>
+                    <>
+                        {/* LIST ITEM */}
+                        <div className="space-y-4">
+                            <AnimatePresence>
+                                {cartItems.map((item) => (
+                                    <CartItem 
+                                        key={item.cart_id} 
+                                        item={item} 
+                                        onUpdateQty={handleUpdateQty} 
+                                        onRemove={handleRemoveItem} 
+                                        onEdit={handleEditItem} 
+                                    />
+                                ))}
+                            </AnimatePresence>
                         </div>
-                        
-                        {activePromo ? (
-                            <div className="bg-green-50 border border-green-100 rounded-xl p-3 flex justify-between items-center">
-                                <div>
-                                    <span className="text-xs font-bold text-green-700 block">{activePromo.name}</span>
-                                    {subtotal < activePromo.min_spend ? (
-                                        <span className="text-[10px] text-red-500">Min. belanja {formatRupiah(activePromo.min_spend)}</span>
-                                    ) : (
-                                        <span className="text-[10px] text-green-600">Hemat {formatRupiah(discountAmount)}</span>
-                                    )}
-                                </div>
-                                <button onClick={handleRemovePromo} className="text-gray-400 hover:text-red-500"><BiTrash /></button>
-                            </div>
-                        ) : (
-                            <Link href={route('customer.promos', table.table_number)} className="block border border-dashed border-gray-300 rounded-xl p-3 text-center text-xs text-gray-400 hover:bg-gray-50 transition-colors">
-                                Hemat pakai promo? Klik di sini
-                            </Link>
-                        )}
-                    </div>
+
+                        {/* PROMO SECTION */}
+                        <CartPromo 
+                            activePromo={activePromo} 
+                            subtotal={subtotal} 
+                            discountAmount={discountAmount} 
+                            onRemove={handleRemovePromo} 
+                            tableNumber={table.table_number} 
+                        />
+                    </>
                 )}
             </main>
 
@@ -222,13 +152,11 @@ export default function Cart({ table, products }) {
                 <div className="fixed bottom-0 inset-x-0 bg-white border-t border-gray-100 p-5 z-50 shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
                     <div className="space-y-1 mb-4">
                          <div className="flex justify-between items-center text-xs text-gray-400">
-                            <span>Subtotal</span>
-                            <span>{formatRupiah(subtotal)}</span>
+                            <span>Subtotal</span><span>{formatRupiah(subtotal)}</span>
                         </div>
                         {discountAmount > 0 && (
                             <div className="flex justify-between items-center text-xs text-green-600 font-bold">
-                                <span>Diskon Promo</span>
-                                <span>- {formatRupiah(discountAmount)}</span>
+                                <span>Diskon Promo</span><span>- {formatRupiah(discountAmount)}</span>
                             </div>
                         )}
                         <div className="flex justify-between items-center mt-2">
@@ -237,10 +165,7 @@ export default function Cart({ table, products }) {
                         </div>
                     </div>
                     
-                    <Link 
-                        href={route('customer.checkout', table.table_number)} 
-                        className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold text-lg shadow-xl shadow-slate-900/20 flex items-center justify-center gap-2 active:scale-95 transition-transform"
-                    >
+                    <Link href={route('customer.checkout', table.table_number)} className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold text-lg shadow-xl shadow-slate-900/20 flex items-center justify-center gap-2 active:scale-95 transition-transform hover:bg-slate-800">
                         Lanjut Pembayaran <BiRightArrowAlt className="text-2xl" />
                     </Link>
                 </div>
