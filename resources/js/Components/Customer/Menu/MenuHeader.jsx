@@ -13,7 +13,7 @@ export default function MenuHeader({ table, cartCount, searchQuery, setSearchQue
                         <span className="text-[10px] font-bold tracking-wide uppercase">Verified Table</span>
                     </div>
                     <h1 className="text-2xl font-extrabold text-slate-900 leading-none">Meja {table.table_number}</h1>
-                    <p className="text-sm text-slate-500 mt-1">Selamat datang, lapar ya? 👋</p>
+                    <p className="text-sm text-slate-500 mt-1">Selamat datang di Restauran ..., lapar ya? 👋</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <Link href={route('customer.history', table.table_number)} className="w-10 h-10 bg-white border border-gray-200 rounded-full flex items-center justify-center text-slate-700 shadow-sm active:scale-95 transition-transform">

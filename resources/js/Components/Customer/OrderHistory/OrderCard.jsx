@@ -30,7 +30,8 @@ export default function OrderCard({ order, tableNumber }) {
 
     return (
         <Link 
-            href={route('customer.order_status', [tableNumber, order.id])} 
+            // PERBAIKAN DI SINI: Ganti 'customer.order_status' menjadi 'customer.order_detail'
+            href={route('customer.order_detail', [tableNumber, order.id])} 
             className="block bg-white p-4 rounded-2xl shadow-sm border border-gray-100 active:scale-[0.98] transition-transform hover:shadow-md"
         >
             <div className="flex justify-between items-start mb-3">
@@ -46,13 +47,6 @@ export default function OrderCard({ order, tableNumber }) {
             </div>
 
             <div className="space-y-1 mb-3">
-                {/* Tampilkan maksimal 2 item sebagai preview */}
-                {/* order.items mungkin perlu dimuat via relasi di controller jika ingin ditampilkan detailnya di sini. 
-                    Jika tidak ada relasi 'items' di props 'order', baris ini mungkin error. 
-                    Asumsi: Controller sudah mengirim 'items' (lihat OrderController.history). */}
-                {/* Namun, OrderController.history Anda saat ini HANYA kirim Order, belum with('items'). 
-                    Nanti kita fix controllernya sedikit atau gunakan data seadanya. */}
-                
                 <h3 className="font-bold text-slate-800 text-sm">
                     Order #{order.id.substring(0, 6).toUpperCase()}
                 </h3>
