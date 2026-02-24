@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Head, Link } from "@inertiajs/react";
 import { CartStore } from "@/Utils/CartStore";
-import { BiShoppingBag, BiSolidStar, BiSearch } from "react-icons/bi";
+import { BiShoppingBag, BiSolidStar, BiSearch, BiRightArrowAlt } from "react-icons/bi";
 import ProductDetailModal from '@/Components/ProductDetailModal';
 
 // Import Komponen Baru
@@ -57,7 +57,7 @@ export default function Menu({ table, categories }) {
             <header className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${scrolled ? "bg-white/95 backdrop-blur-md shadow-sm pt-2" : "bg-white pt-6"}`}>
                 <MenuHeader table={table} cartCount={cartSummary.totalQty} searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
                 
-                {/* Category Tabs (Bisa dipisah juga kalau mau lebih rapi) */}
+                {/* Category Tabs */}
                 {!searchQuery && (
                     <div className="border-b border-gray-100 mt-1">
                         <div className="flex gap-3 overflow-x-auto px-6 pb-3 no-scrollbar pt-2">
@@ -71,16 +71,32 @@ export default function Menu({ table, categories }) {
 
             {/* 2. MAIN CONTENT */}
             <main className={`px-5 space-y-10 ${searchQuery ? "pt-[180px]" : "pt-[240px]"}`}>
+                
+                {/* BANNER PROMO (LINK KE HALAMAN PROMO) */}
                 {!searchQuery && (
-                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-slate-900 rounded-2xl p-5 text-white relative overflow-hidden shadow-xl">
-                        <div className="relative z-10 w-[65%]">
-                            <div className="flex items-center gap-1 mb-2"><BiSolidStar className="text-yellow-400 text-xs" /><span className="text-orange-400 font-bold text-[10px] uppercase">Chef Recommendation</span></div>
-                            <h2 className="text-lg font-bold leading-tight mb-3">Diskon 20% untuk Menu Spesial!</h2>
-                        </div>
-                        <img src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=300&q=80" className="absolute bottom-[-10px] right-[-10px] w-32 h-32 object-cover rounded-full border-4 border-slate-900 rotate-12" alt="Promo" />
-                    </motion.div>
+                    <Link href={route('customer.promos', table.table_number)}>
+                        <motion.div 
+                            initial={{ opacity: 0, y: 20 }} 
+                            animate={{ opacity: 1, y: 0 }} 
+                            whileTap={{ scale: 0.98 }} // Efek animasi saat diklik
+                            className="bg-slate-900 rounded-2xl p-5 text-white relative overflow-hidden shadow-xl cursor-pointer group"
+                        >
+                            <div className="relative z-10 w-[65%]">
+                                <div className="flex items-center gap-1 mb-2">
+                                    <BiSolidStar className="text-yellow-400 text-xs" />
+                                    <span className="text-orange-400 font-bold text-[10px] uppercase">Promo Spesial</span>
+                                </div>
+                                <h2 className="text-lg font-bold leading-tight mb-1">Makan Hemat Pakai Voucher!</h2>
+                                <div className="flex items-center gap-1 text-xs text-slate-300 group-hover:text-white transition-colors">
+                                    <span>Cek voucher tersedia</span> <BiRightArrowAlt />
+                                </div>
+                            </div>
+                            <img src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=300&q=80" className="absolute bottom-[-10px] right-[-10px] w-32 h-32 object-cover rounded-full border-4 border-slate-900 rotate-12 group-hover:rotate-6 transition-transform duration-500" alt="Promo" />
+                        </motion.div>
+                    </Link>
                 )}
 
+                {/* PRODUCT LIST */}
                 {filteredCategories.length > 0 ? (
                     filteredCategories.map((cat) => (
                         <section key={cat.id} id={`category-${cat.id}`}>
@@ -109,7 +125,7 @@ export default function Menu({ table, categories }) {
             <AnimatePresence>
                 {cartSummary.totalQty > 0 && (
                     <motion.div initial={{ y: 100 }} animate={{ y: 0 }} exit={{ y: 100 }} className="fixed bottom-0 inset-x-0 bg-white border-t border-gray-100 p-4 z-50 pb-6 shadow-[0_-5px_30px_rgba(0,0,0,0.08)]">
-                        <Link href={route('customer.cart', table.table_number)} className="w-full bg-slate-900 text-white p-4 rounded-xl shadow-lg flex justify-between items-center active:scale-[0.99] transition-transform">
+                        <Link href={route('customer.cart', table.table_number)} className="w-full bg-slate-900 text-white p-4 rounded-xl shadow-lg flex justify-between items-center active:scale-[0.99] transition-transform hover:bg-slate-800">
                             <div className="flex items-center gap-3">
                                 <div className="bg-orange-500 text-white min-w-[32px] h-8 rounded-full flex items-center justify-center font-bold text-sm border-2 border-slate-900">{cartSummary.totalQty}</div>
                                 <div className="flex flex-col items-start leading-none"><span className="text-[10px] text-gray-400 font-medium uppercase">Total</span><span className="font-bold text-lg">{formatRupiah(cartSummary.totalPrice)}</span></div>
