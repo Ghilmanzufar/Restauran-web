@@ -21,19 +21,26 @@ class OrderController extends Controller
 {
     public function index(string $tableNumber)
     {
-        // 1. Cek apakah meja ada? (Kalau tidak ada, otomatis 404 Not Found)
-        $table = Table::where('table_number', $tableNumber)->firstOrFail();
+        // 1. Ubah firstOrFail() menjadi first() agar tidak langsung error system
+        $table = Table::where('table_number', $tableNumber)->first();
 
-        // 2. Ambil Kategori yang Aktif + Produk di dalamnya
-        // Kita pakai 'with' biar hemat query (Eager Loading)
+        // 2. Cek meja DULUAN. Jika kosong, langsung lempar ke halaman Error Custom.
+        if (!$table) {
+            return Inertia::render('Customer/Error', [
+                'status' => 404,
+                'message' => 'Meja dengan nomor ini tidak ditemukan di sistem kami.'
+            ]);
+        }
+
+        // 3. Jika meja ada, baru kita query Kategori & Produk
+        // (Query berat ini tidak perlu dijalankan jika mejanya saja tidak ada)
         $categories = Category::with(['products' => function ($query) {
-            $query->where('is_available', true)->with(['variants.items']); // <--- TAMBAHKAN INI (Eager Loading) 
+            $query->where('is_available', true)->with(['variants.items']); 
         }])
         ->where('is_active', true)
         ->get();
 
-        // 3. Kirim ke React (Component 'Customer/Menu')
-        // Data ini nanti bisa diakses di React via props.categories dan props.table
+        // 4. Render halaman Menu
         return Inertia::render('Customer/Menu', [
             'table' => $table,
             'categories' => $categories
