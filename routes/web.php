@@ -6,14 +6,10 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\OrderController;
 use Inertia\Inertia;
 
+// Pastikan tidak ada route '/' lain di atas atau bawahnya yang duplikat
 Route::get('/', function () {
-    return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
-    ]);
-});
+    return Inertia::render('Landing'); 
+})->name('home');
 
 Route::get('/dashboard', function () {
     return Inertia::render('Dashboard');
