@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Head, router } from "@inertiajs/react";
 import { Toaster, toast } from "sonner";
+import { CartStore } from "@/Utils/CartStore"; // <--- IMPORT CART STORE
 
 // IMPORT KOMPONEN BARU
 import PromoHeader from "@/Components/Customer/PromoList/PromoHeader";
@@ -12,8 +13,25 @@ const formatRupiah = (number) => new Intl.NumberFormat("id-ID", { style: "curren
 
 export default function PromoList({ table, promos }) {
     
+    // State untuk menyimpan total belanja keranjang
+    const [cartTotal, setCartTotal] = useState(0);
+
+    // Ambil data keranjang saat halaman dibuka
+    useEffect(() => {
+        const summary = CartStore.getSummary(table.table_number);
+        setCartTotal(summary.totalPrice);
+    }, []);
+
     // LOGIKA "PAKAI PROMO"
     const handleApplyPromo = (promo) => {
+        // Validasi Double Check (Keamanan Tambahan)
+        if (cartTotal < promo.min_spend) {
+            toast.error("Syarat belum terpenuhi!", {
+                description: `Minimal belanja ${formatRupiah(promo.min_spend)} untuk promo ini.`
+            });
+            return;
+        }
+
         const promoData = {
             id: promo.id,
             name: promo.name,
@@ -24,14 +42,12 @@ export default function PromoList({ table, promos }) {
             min_spend: promo.min_spend
         };
 
-        // Simpan ke "Saku" (LocalStorage)
         localStorage.setItem(`active_promo_${table.table_number}`, JSON.stringify(promoData));
 
         toast.success("Promo Berhasil Dipasang!", {
             description: `Potongan ${promo.type === 'fixed' ? formatRupiah(promo.discount_amount) : promo.discount_amount + '%'} siap digunakan.`
         });
 
-        // Redirect balik ke Keranjang setelah 1 detik
         setTimeout(() => {
             router.visit(route('customer.cart', table.table_number));
         }, 1000);
@@ -42,14 +58,11 @@ export default function PromoList({ table, promos }) {
             <Head title={`Promo Spesial - Meja ${table.table_number}`} />
             <Toaster position="top-center" richColors />
 
-            {/* 1. Header */}
             <PromoHeader tableNumber={table.table_number} />
 
             <main className="p-5 space-y-4">
-                {/* 2. Banner Info */}
                 <PromoBanner />
 
-                {/* 3. List Promo */}
                 {promos.length === 0 ? (
                     <EmptyPromo />
                 ) : (
@@ -57,6 +70,7 @@ export default function PromoList({ table, promos }) {
                         <PromoCard 
                             key={promo.id} 
                             promo={promo} 
+                            cartTotal={cartTotal} // <--- KIRIM TOTAL BELANJA KE COMPONENT
                             onApply={handleApplyPromo} 
                         />
                     ))
