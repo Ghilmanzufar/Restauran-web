@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Cookie;
 use App\Models\Table;
 use App\Models\Product;
 use App\Models\Order;             // <--- PENTING: Tambahkan ini
@@ -15,32 +17,72 @@ use Inertia\Inertia;
 use App\Models\Promo;       // <-- Tambahkan
 use App\Models\PromoUsage;  // <-- Tambahkan
 use App\Services\PromoService; // <-- Tambahkan (Jika pakai service)
-
+use App\Models\OrderSession;
 
 class OrderController extends Controller
 {
-    public function index(string $tableNumber)
+    public function index(Request $request, string $tableNumber)
     {
-        // 1. Ubah firstOrFail() menjadi first() agar tidak langsung error system
+        // 1. Cek Meja (Wajib Ada)
         $table = Table::where('table_number', $tableNumber)->first();
 
-        // 2. Cek meja DULUAN. Jika kosong, langsung lempar ke halaman Error Custom.
         if (!$table) {
             return Inertia::render('Customer/Error', [
                 'status' => 404,
-                'message' => 'Meja dengan nomor ini tidak ditemukan di sistem kami.'
+                'message' => 'Meja tidak ditemukan.'
             ]);
         }
 
-        // 3. Jika meja ada, baru kita query Kategori & Produk
-        // (Query berat ini tidak perlu dijalankan jika mejanya saja tidak ada)
+        // 2. LOGIKA SESI (MULTI-DEVICE / SATU MEJA RAME-RAME)
+        
+        // Cari Sesi Aktif di Database
+        $activeSession = OrderSession::where('table_id', $table->id)
+            ->where('status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('expires_at')
+                      ->orWhere('expires_at', '>', now());
+            })
+            ->first();
+
+        // Ambil token dari HP User (jika ada)
+        $userToken = $request->cookie('resto_session_token');
+
+        if (!$activeSession) {
+            // SKENARIO A: Meja Kosong (Pelanggan Baru)
+            // --> Buat Sesi Baru di Database
+            
+            $newCode = Str::random(10); // Kode unik acak
+            
+            OrderSession::create([
+                'table_id' => $table->id,
+                'session_code' => $newCode,
+                'status' => 'active',
+                'started_at' => now(),
+                'expires_at' => now()->addHours(3), // Otomatis expired dalam 3 jam
+            ]);
+
+            // --> Tempelkan Tiket ke HP User (Cookie 3 jam)
+            Cookie::queue('resto_session_token', $newCode, 180);
+
+        } else {
+            // SKENARIO B: Meja Sedang Dipakai
+            // --> Logika "Join Table" (Teman semeja scan QR yang sama)
+            
+            // Jika di HP user belum ada tiket, ATAU tiketnya beda...
+            if ($userToken !== $activeSession->session_code) {
+                // ...Kita paksa HP dia memakai tiket meja ini.
+                Cookie::queue('resto_session_token', $activeSession->session_code, 180);
+            }
+        }
+
+        // 3. AMBIL DATA MENU (Seperti Biasa)
         $categories = Category::with(['products' => function ($query) {
             $query->where('is_available', true)->with(['variants.items']); 
         }])
         ->where('is_active', true)
         ->get();
 
-        // 4. Render halaman Menu
+        // 4. RENDER HALAMAN
         return Inertia::render('Customer/Menu', [
             'table' => $table,
             'categories' => $categories

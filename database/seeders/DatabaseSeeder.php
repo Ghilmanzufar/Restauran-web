@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             RoleSeeder::class,   // User & Roles dulu
             TableSeeder::class,  // Meja
             MenuSeeder::class,   // Menu Makanan
+            PromoSeeder::class,  // Promo
         ]);
     }
 }

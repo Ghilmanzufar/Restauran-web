@@ -3,23 +3,31 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory; // Tambahkan ini
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class OrderSession extends Model
 {
-    use HasUuids;
+    use HasUuids, HasFactory;
 
     protected $fillable = [
-        'table_id', 'session_code', 'status', 
-        'total_amount', 'started_at', 'locked_at', 'closed_at'
+        'table_id', 
+        'session_code', // Kita pakai ini sebagai TOKEN PENGAMAN
+        'status', 
+        'total_amount', 
+        'started_at', 
+        'locked_at', 
+        'closed_at',
+        'expires_at' // Tambahan kolom baru
     ];
     
     protected $casts = [
         'started_at' => 'datetime',
         'locked_at' => 'datetime',
         'closed_at' => 'datetime',
+        'expires_at' => 'datetime',
     ];
 
     public function table(): BelongsTo

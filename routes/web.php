@@ -1,43 +1,59 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
-use Illuminate\Foundation\Application;
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\OrderController;
+use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-// Pastikan tidak ada route '/' lain di atas atau bawahnya yang duplikat
+/*
+|--------------------------------------------------------------------------
+| Web Routes
+|--------------------------------------------------------------------------
+*/
+
+// --- 1. HALAMAN DEPAN UMUM (Landing Page Website) ---
 Route::get('/', function () {
     return Inertia::render('Landing'); 
 })->name('home');
 
+// --- 2. DASHBOARD ADMIN/STAFF ---
 Route::get('/dashboard', function () {
     return Inertia::render('Dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
-// Route Landing Page (Halaman Pertama saat Scan QR)
-Route::get('/scan/{tableNumber}', [OrderController::class, 'landing'])->name('customer.landing');
 
-// Route untuk halaman pemesanan (Customer Menu)
-Route::get('/order/{tableNumber}', [OrderController::class, 'index'])->name('customer.menu');
+// --- 3. GRUP ROUTE CUSTOMER (Pemesanan QR) ---
+// Semua URL di bawah ini diawali dengan: /order/{tableNumber}
+// Semua Nama Route diawali dengan: customer. (misal: customer.menu)
+Route::prefix('order/{tableNumber}')->name('customer.')->group(function () {
 
-// Tambahkan di bawah route menu
-Route::get('/order/{tableNumber}/cart', [OrderController::class, 'cart'])->name('customer.cart');
+    // A. GERBANG MASUK (Public / Session Creator)
+    // Halaman ini yang membuat "Tiket Sesi" saat pertama kali scan
+    Route::get('/', [OrderController::class, 'index'])->name('menu');
 
-// Route Checkout (Menampilkan Halaman Ringkasan)
-Route::get('/order/{tableNumber}/checkout', [OrderController::class, 'checkout'])->name('customer.checkout');
-Route::post('/order/{tableNumber}/checkout', [OrderController::class, 'store'])->name('customer.store');
+    // B. AREA TERLARANG (Wajib Punya Tiket Sesi Valid)
+    // Middleware 'order.session' akan menolak akses jika sesi sudah ditutup/expired
+    Route::middleware(['order.session'])->group(function () {
+        
+        // Keranjang
+        Route::get('/cart', [OrderController::class, 'cart'])->name('cart');
+        
+        // Halaman Promo
+        Route::get('/promos', [OrderController::class, 'promos'])->name('promos');
+        
+        // Checkout & Bayar (Paling Penting Dijaga)
+        Route::get('/checkout', [OrderController::class, 'checkout'])->name('checkout');
+        Route::post('/checkout', [OrderController::class, 'store'])->name('store');
+    });
+
+    // C. AREA READ-ONLY (Bebas Akses)
+    // History & Status boleh dilihat walau sesi sudah ditutup (untuk bukti pembayaran)
+    Route::get('/history', [OrderController::class, 'history'])->name('history');
+    Route::get('/status/{orderId}', [OrderController::class, 'showStatus'])->name('order_detail');
+});
 
 
-// Route History (Daftar Pesanan)
-Route::get('/order/{tableNumber}/history', [OrderController::class, 'history'])->name('customer.history');
-// Route Status Detail (Melihat satu pesanan spesifik)
-// Perhatikan ada parameter {orderId} agar kita bisa melihat orderan masa lalu
-Route::get('/order/{tableNumber}/status/{orderId}', [OrderController::class, 'showStatus'])->name('customer.order_detail');
-
-// Route Halaman Promo
-Route::get('/order/{tableNumber}/promos', [OrderController::class, 'promos'])->name('customer.promos');
-
+// --- 4. PROFILE USER (Admin) ---
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

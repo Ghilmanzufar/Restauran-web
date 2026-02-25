@@ -9,6 +9,9 @@ class OrderItemVariant extends Model
 {
     use HasUuids;
 
+    // Pastikan nama tabelnya benar (biasanya order_item_variants)
+    protected $table = 'order_item_variants';
+
     // Penting: Buka akses mass assignment
     protected $guarded = ['id'];
 }
