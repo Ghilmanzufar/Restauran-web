@@ -18,6 +18,8 @@ use App\Models\Promo;       // <-- Tambahkan
 use App\Models\PromoUsage;  // <-- Tambahkan
 use App\Services\PromoService; // <-- Tambahkan (Jika pakai service)
 use App\Models\OrderSession;
+use Illuminate\Support\Facades\Log;
+
 
 class OrderController extends Controller
 {
@@ -177,96 +179,157 @@ class OrderController extends Controller
         ]);
     }
 
-    // --- 5. STORE ORDER (PROSES SIMPAN) ---
+    
+
     public function store(Request $request, string $tableNumber)
     {
-        // Validasi
-        $validated = $request->validate([
-            'customer_name' => 'required|string|max:255',
-            'whatsapp_number' => 'nullable|string|max:20',
-            'payment_method' => 'required|in:cashier,qris',
-            'total_price' => 'required|numeric',
-            'items' => 'required|array|min:1',
-            'promo_id' => 'nullable|exists:promos,id', // <-- VALIDASI PROMO ID
-        ]);
+        // 1. LOG START
+        Log::info("🔥 [ORDER] Request dari Meja: $tableNumber");
 
-        $table = Table::where('table_number', $tableNumber)->firstOrFail();
-
+        // 2. VALIDASI DATA
         try {
-            DB::beginTransaction(); 
+            $validated = $request->validate([
+                'customer_name' => 'required|string|max:50',
+                'whatsapp_number' => 'nullable|string|max:20',
+                'items' => 'required|array|min:1', 
+                'items.*.product_id' => 'required|exists:products,id',
+                'items.*.qty' => 'required|integer|min:1', 
+                'items.*.variants' => 'nullable|array',
+                'items.*.variants.*.product_variant_item_id' => 'required|exists:product_variant_items,id',
+                'notes' => 'nullable|string|max:200',
+                'promo_id' => 'nullable|exists:promos,id'
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return back()->withErrors($e->errors());
+        }
 
-            // A. Simpan Order Utama
+        // 3. CEK MEJA & SESI
+        $table = Table::where('table_number', $tableNumber)->firstOrFail();
+        $session = OrderSession::where('table_id', $table->id)
+            ->where('status', 'active')
+            ->where('session_code', $request->cookie('resto_session_token'))
+            ->where(function ($q) { $q->whereNull('expires_at')->orWhere('expires_at', '>', now()); })
+            ->first();
+
+        if (!$session) return back()->withErrors(['message' => 'Sesi berakhir.']);
+
+        // 4. MULAI TRANSAKSI
+        try {
+            DB::beginTransaction();
+
+            // A. BUAT ORDER HEADER
             $order = Order::create([
+                'session_id' => $session->id,
                 'table_id' => $table->id,
                 'customer_name' => $validated['customer_name'],
-                'whatsapp_number' => $validated['whatsapp_number'],
-                'total_price' => $validated['total_price'],
-                'payment_method' => $validated['payment_method'],
-                'payment_status' => 'pending',
-                'order_status' => 'new'
+                'whatsapp_number' => $request->whatsapp_number ?? null, 
+                'order_status' => 'pending',   
+                'payment_status' => 'unpaid',  
+                'payment_method' => $request->payment_method ?? 'cash', 
+                'total_price' => 0 
             ]);
 
-            // B. Simpan Item (Sama seperti sebelumnya)
-            foreach ($validated['items'] as $item) {
-                $orderItem = $order->items()->create([
-                    'product_id' => $item['product_id'],
-                    'qty' => $item['qty'],
-                    'price_per_item' => $item['price_at_order'],
-                    'total_price' => $item['total_item_price'],
-                    'note' => $item['note'] ?? null,
+            // B. HITUNG ITEM & VARIAN
+            $grossSubtotal = 0; 
+
+            foreach ($validated['items'] as $itemData) {
+                $product = Product::find($itemData['product_id']);
+                $basePrice = $product->price;
+                $extraVariantPrice = 0;
+
+                // Hitung Varian
+                if (!empty($itemData['variants'])) {
+                    foreach ($itemData['variants'] as $v) {
+                        $variantItem = ProductVariantItem::find($v['product_variant_item_id']);
+                        if ($variantItem) {
+                            $extraVariantPrice += ($variantItem->price_adjustment ?? 0);
+                        }
+                    }
+                }
+
+                $finalItemPrice = $basePrice + $extraVariantPrice;
+                $lineTotal = $finalItemPrice * $itemData['qty'];
+                $grossSubtotal += $lineTotal;
+
+                // Simpan Item
+                $orderItem = OrderItem::create([
+                    'order_id' => $order->id,
+                    'product_id' => $product->id,
+                    'qty' => $itemData['qty'],           
+                    'price_per_item' => $finalItemPrice, 
+                    'total_price' => $lineTotal,          
+                    'note' => $itemData['note'] ?? null  
                 ]);
 
-                if (!empty($item['variants'])) {
-                    foreach ($item['variants'] as $variant) {
-                        $pv = ProductVariant::find($variant['product_variant_id']);
-                        $pvi = ProductVariantItem::find($variant['product_variant_item_id']);
-
-                        if ($pv && $pvi) {
-                            $orderItem->variants()->create([
-                                'product_variant_id' => $pv->id,
-                                'product_variant_item_id' => $pvi->id,
-                                'variant_name' => $pv->name,
-                                'item_name' => $pvi->name,
-                                'extra_price' => $pvi->price
-                            ]);
-                        }
+                // Simpan Detail Varian
+                if (!empty($itemData['variants'])) {
+                    foreach ($itemData['variants'] as $v) {
+                        $variantItem = ProductVariantItem::find($v['product_variant_item_id']);
+                        \App\Models\OrderItemVariant::create([
+                            'order_item_id' => $orderItem->id,
+                            'product_variant_id' => $variantItem->product_variant_id,
+                            'product_variant_item_id' => $variantItem->id,
+                            'variant_name' => $variantItem->productVariant->name ?? 'Variant', 
+                            'item_name' => $variantItem->name, 
+                            'extra_price' => $variantItem->price_adjustment ?? 0 
+                        ]);
                     }
                 }
             }
 
-            // C. SIMPAN PEMAKAIAN PROMO (BARU!)
-            if ($request->promo_id) {
-                $promo = Promo::find($request->promo_id);
+            // C. HITUNG DISKON PROMO
+            $discountAmount = 0;
+            if (!empty($validated['promo_id'])) {
+                $promo = Promo::find($validated['promo_id']);
                 
-                // Hitung ulang diskon di server (Security) agar tidak dimanipulasi frontend
-                // Idealnya pakai PromoService, tapi ini versi inline sederhana
-                // Asumsi: frontend kirim total_price yg SUDAH didiskon. 
-                // Kita perlu hitung "Nilai Hematnya" berapa.
-                // Tapi untuk pencatatan simple:
-                
-                // Kita simpan Usage Record
-                PromoUsage::create([
-                    'promo_id' => $promo->id,
-                    'order_id' => $order->id,
-                    'user_identifier' => $tableNumber, // Identifikasi user via Meja
-                    'discount_value' => 0, // Nanti bisa diupdate logic hitungnya
-                    'used_at' => now()
-                ]);
+                if ($grossSubtotal >= $promo->min_spend) {
+                    if ($promo->type === 'fixed') {
+                        $discountAmount = $promo->discount_amount;
+                    } else {
+                        $discountAmount = $grossSubtotal * ($promo->discount_amount / 100);
+                        if ($promo->max_discount && $discountAmount > $promo->max_discount) {
+                            $discountAmount = $promo->max_discount;
+                        }
+                    }
+                    $discountAmount = min($discountAmount, $grossSubtotal);
+
+                    // --- PERBAIKAN DI SINI ---
+                    $userIdentity = $validated['whatsapp_number'] ?? $session->session_code ?? 'GUEST';
+
+                    PromoUsage::create([
+                        'promo_id' => $promo->id,
+                        'order_id' => $order->id,
+                        'user_identifier' => $userIdentity, // Wajib diisi
+                        'discount_value' => $discountAmount,
+                        'used_at' => now() // <--- SOLUSI: Isi waktu sekarang agar tidak error NOT NULL
+                    ]);
+                }
             }
 
-            DB::commit(); 
+            // D. HITUNG FINAL
+            $subtotalAfterDiscount = $grossSubtotal - $discountAmount;
+            $tax = $subtotalAfterDiscount * 0.10;     
+            $service = $subtotalAfterDiscount * 0.05; 
+            
+            $grandTotal = $subtotalAfterDiscount + $tax + $service;
+
+            // E. UPDATE ORDER & SESSION
+            $order->update(['total_price' => $grandTotal]);
+            $session->increment('total_amount', $grandTotal);
+
+            DB::commit();
 
             return to_route('customer.order_detail', [
                 'tableNumber' => $tableNumber, 
                 'orderId' => $order->id
-            ]);
+            ])->with('success', 'Pesanan berhasil!');
 
         } catch (\Exception $e) {
-            DB::rollBack();
-            \Illuminate\Support\Facades\Log::error('Order Error: ' . $e->getMessage());
-            return back()->withErrors(['msg' => $e->getMessage()]);
+            DB::rollback();
+            Log::error("Order Error: " . $e->getMessage());
+            return back()->withErrors(['message' => 'Gagal: ' . $e->getMessage()]);
         }
-    }
+    }   
 
     // --- 6. STATUS & HISTORY PAGE ---
     public function status(string $tableNumber)

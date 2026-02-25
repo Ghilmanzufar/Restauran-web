@@ -95,13 +95,21 @@ export default function Checkout({ table }) {
                 toast.success("Pesanan Berhasil!");
             },
             onError: (err) => {
+                // --- DEBUGGING START ---
+                console.error("🔥 ERROR DARI SERVER:", err); // Cek Console (F12)
+                
+                // Tampilkan pesan error spesifik di layar
+                // Kita gabungkan semua pesan error jadi satu string
+                const errorMessage = Object.values(err).flat().join(', ');
+                toast.error("Gagal: " + errorMessage);
+                // --- DEBUGGING END ---
+
                 if (err.promo_id) {
-                    toast.error("Promo tidak valid/kadaluarsa.");
                     localStorage.removeItem(`active_promo_${table.table_number}`);
-                    setActivePromo(null); setDiscountAmount(0);
-                } else {
-                    toast.error("Terjadi kesalahan, coba lagi.");
+                    setActivePromo(null); 
+                    setDiscountAmount(0);
                 }
+                
                 setIsSubmitting(false);
             },
             onFinish: () => setIsSubmitting(false)

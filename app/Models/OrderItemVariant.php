@@ -9,9 +9,15 @@ class OrderItemVariant extends Model
 {
     use HasUuids;
 
-    // Pastikan nama tabelnya benar (biasanya order_item_variants)
-    protected $table = 'order_item_variants';
+    // --- PERBAIKAN DI SINI ---
+    // Gunakan nama tabel yang baku (bahasa inggris yang benar)
+    protected $table = 'order_item_variants'; 
 
-    // Penting: Buka akses mass assignment
     protected $guarded = ['id'];
+    
+    // Relasi balik ke Item (Opsional, tapi bagus ada)
+    public function orderItem()
+    {
+        return $this->belongsTo(OrderItem::class);
+    }
 }
