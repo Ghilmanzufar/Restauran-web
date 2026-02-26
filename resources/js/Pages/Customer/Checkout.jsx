@@ -22,7 +22,7 @@ export default function Checkout({ table }) {
     // Form State
     const [customerName, setCustomerName] = useState("");
     const [whatsappNumber, setWhatsappNumber] = useState("");
-    const [paymentMethod, setPaymentMethod] = useState("qris");
+    const [paymentMethod, setPaymentMethod] = useState("cashier");
     const [isSubmitting, setIsSubmitting] = useState(false);
     
     // Error State (untuk validasi manual)

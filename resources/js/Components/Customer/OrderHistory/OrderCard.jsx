@@ -48,7 +48,8 @@ export default function OrderCard({ order, tableNumber }) {
 
             <div className="space-y-1 mb-3">
                 <h3 className="font-bold text-slate-800 text-sm">
-                    Order #{order.id.substring(0, 6).toUpperCase()}
+                    {/* Mengambil 4 karakter terakhir & Uppercase */}
+                    #{order.id.slice(-4).toUpperCase()} 
                 </h3>
                 <p className="text-xs text-gray-500 line-clamp-1">
                     Total {formatRupiah(order.total_price)}

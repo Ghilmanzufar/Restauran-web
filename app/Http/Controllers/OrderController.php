@@ -271,7 +271,7 @@ class OrderController extends Controller
                     'qty' => $itemData['qty'],           
                     'price_per_item' => $finalItemPrice, 
                     'total_price' => $lineTotal,          
-                    'note' => $itemData['note'] ?? null  
+                    'note' => $itemData['note'] ?? null,  
                 ]);
 
                 // Simpan Detail Varian
@@ -391,5 +391,27 @@ class OrderController extends Controller
             'table' => $table,
             'promos' => $promos
         ]);
+    }
+
+    // --- FITUR BARU: BATALKAN PESANAN ---
+    public function cancel(string $tableNumber, string $orderId)
+    {
+        $order = Order::where('id', $orderId)->firstOrFail();
+
+        // Security Check: Hanya boleh cancel jika status masih 'pending'
+        if ($order->order_status !== 'pending') {
+            return back()->withErrors(['message' => 'Pesanan tidak bisa dibatalkan karena sudah diproses/selesai.']);
+        }
+
+        // Update Status
+        $order->update([
+            'order_status' => 'cancelled',
+            'payment_status' => 'failed' // Opsional: set failed atau biarkan unpaid
+        ]);
+
+        // (Opsional) Jika Anda menggunakan sistem stok, kembalikan stok produk di sini
+        // foreach ($order->items as $item) { ... $item->product->increment('stock_qty', $item->qty); ... }
+
+        return back()->with('success', 'Pesanan berhasil dibatalkan.');
     }
 }

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\ServiceCallController; // <--- TAMBAHKAN INI
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -31,6 +32,9 @@ Route::prefix('order/{tableNumber}')->name('customer.')->group(function () {
     // Halaman ini yang membuat "Tiket Sesi" saat pertama kali scan
     Route::get('/', [OrderController::class, 'index'])->name('menu');
 
+    Route::get('/call', [ServiceCallController::class, 'index'])->name('call.index');
+    Route::post('/call', [ServiceCallController::class, 'store'])->name('call.store');
+
     // B. AREA TERLARANG (Wajib Punya Tiket Sesi Valid)
     // Middleware 'order.session' akan menolak akses jika sesi sudah ditutup/expired
     Route::middleware(['order.session'])->group(function () {
@@ -44,6 +48,11 @@ Route::prefix('order/{tableNumber}')->name('customer.')->group(function () {
         // Checkout & Bayar (Paling Penting Dijaga)
         Route::get('/checkout', [OrderController::class, 'checkout'])->name('checkout');
         Route::post('/checkout', [OrderController::class, 'store'])->name('store');
+
+        // <--- TAMBAHKAN DISINI (Fitur Cancel) ---
+        // URL aslinya jadi: /order/{tableNumber}/cancel/{orderId}
+        // Nama aslinya jadi: customer.cancel
+        Route::post('/cancel/{orderId}', [OrderController::class, 'cancel'])->name('cancel');
     });
 
     // C. AREA READ-ONLY (Bebas Akses)
