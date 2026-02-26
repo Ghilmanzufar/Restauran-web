@@ -234,15 +234,28 @@ class OrderController extends Controller
 
             foreach ($validated['items'] as $itemData) {
                 $product = Product::find($itemData['product_id']);
+
+                // 🛡️ SECURITY 1: CEK KETERSEDIAAN (RACE CONDITION)
+                if (!$product || !$product->is_available) {
+                    throw new \Exception("Mohon maaf, produk '{$product->name}' baru saja habis. Silakan hapus dari keranjang.");
+                }
+
                 $basePrice = $product->price;
                 $extraVariantPrice = 0;
 
                 // Hitung Varian
                 if (!empty($itemData['variants'])) {
                     foreach ($itemData['variants'] as $v) {
-                        $variantItem = ProductVariantItem::find($v['product_variant_item_id']);
+                        // Load relation 'productVariant' agar bisa cek parent product-nya
+                        $variantItem = ProductVariantItem::with('productVariant')->find($v['product_variant_item_id']);
+                        
                         if ($variantItem) {
-                            $extraVariantPrice += ($variantItem->price_adjustment ?? 0);
+                            // 🛡️ SECURITY 2: CEK KEPEMILIKAN VARIAN (ANTI MANIPULASI)
+                            if ($variantItem->productVariant->product_id !== $product->id) {
+                                throw new \Exception("Security Alert: Varian tidak valid untuk produk ini.");
+                            }
+
+                            $extraVariantPrice += ($variantItem->price ?? 0);
                         }
                     }
                 }
@@ -265,14 +278,16 @@ class OrderController extends Controller
                 if (!empty($itemData['variants'])) {
                     foreach ($itemData['variants'] as $v) {
                         $variantItem = ProductVariantItem::find($v['product_variant_item_id']);
-                        \App\Models\OrderItemVariant::create([
-                            'order_item_id' => $orderItem->id,
-                            'product_variant_id' => $variantItem->product_variant_id,
-                            'product_variant_item_id' => $variantItem->id,
-                            'variant_name' => $variantItem->productVariant->name ?? 'Variant', 
-                            'item_name' => $variantItem->name, 
-                            'extra_price' => $variantItem->price_adjustment ?? 0 
-                        ]);
+                        if ($variantItem) {
+                            \App\Models\OrderItemVariant::create([
+                                'order_item_id' => $orderItem->id,
+                                'product_variant_id' => $variantItem->product_variant_id,
+                                'product_variant_item_id' => $variantItem->id,
+                                'variant_name' => $variantItem->productVariant->name ?? 'Variant', 
+                                'item_name' => $variantItem->name, 
+                                'extra_price' => $variantItem->price ?? 0 
+                            ]);
+                        }
                     }
                 }
             }
@@ -293,15 +308,14 @@ class OrderController extends Controller
                     }
                     $discountAmount = min($discountAmount, $grossSubtotal);
 
-                    // --- PERBAIKAN DI SINI ---
                     $userIdentity = $validated['whatsapp_number'] ?? $session->session_code ?? 'GUEST';
 
                     PromoUsage::create([
                         'promo_id' => $promo->id,
                         'order_id' => $order->id,
-                        'user_identifier' => $userIdentity, // Wajib diisi
+                        'user_identifier' => $userIdentity, 
                         'discount_value' => $discountAmount,
-                        'used_at' => now() // <--- SOLUSI: Isi waktu sekarang agar tidak error NOT NULL
+                        'used_at' => now() 
                     ]);
                 }
             }
