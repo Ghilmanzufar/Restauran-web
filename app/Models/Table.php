@@ -13,6 +13,14 @@ class Table extends Model
     // Pastikan ini guarded id, BUKAN fillable
     protected $guarded = ['id'];
 
+    // --- TAMBAHKAN RELASI INI ---
+    // Satu meja bisa punya banyak order
+    public function orders(): HasMany
+    {
+        return $this->hasMany(Order::class);
+    }
+    // ----------------------------
+
     // Satu meja bisa punya banyak history sesi
     public function sessions(): HasMany
     {

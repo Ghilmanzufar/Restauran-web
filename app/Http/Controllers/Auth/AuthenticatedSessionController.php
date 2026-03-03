@@ -33,7 +33,8 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        // Jika Anda ingin mengarahkannya ke halaman utama (Dashboard Admin)
+        return redirect()->intended(route('admin.dashboard', absolute: false));
     }
 
     /**

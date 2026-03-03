@@ -4,20 +4,24 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class OrderItemVariant extends Model
 {
     use HasUuids;
 
-    // --- PERBAIKAN DI SINI ---
-    // Gunakan nama tabel yang baku (bahasa inggris yang benar)
-    protected $table = 'order_item_variants'; 
-
     protected $guarded = ['id'];
-    
-    // Relasi balik ke Item (Opsional, tapi bagus ada)
-    public function orderItem()
+
+    // Relasi balik ke Order Item
+    public function orderItem(): BelongsTo
     {
         return $this->belongsTo(OrderItem::class);
+    }
+
+    // --- TAMBAHKAN FUNGSI INI ---
+    // Relasi ke master data Product Variant Item (untuk ambil nama & harga varian)
+    public function productVariantItem(): BelongsTo
+    {
+        return $this->belongsTo(ProductVariantItem::class, 'product_variant_item_id');
     }
 }
