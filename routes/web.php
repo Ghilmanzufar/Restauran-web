@@ -12,6 +12,7 @@ use App\Http\Controllers\Admin\PromoController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\AuditLogController;
+use App\Http\Controllers\Admin\ServiceCallController as AdminServiceCallController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -106,6 +107,10 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
 
     // --- AUDIT & LOG AKTIVITAS ---
     Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit.index');
+
+    // --- PANGGILAN PELAYAN (CALL WAITER) ---
+    Route::get('/service-calls', [AdminServiceCallController::class, 'index'])->name('service-calls.index');
+    Route::post('/service-calls/{serviceCall}/resolve', [AdminServiceCallController::class, 'resolve'])->name('service-calls.resolve');
 });
 
 

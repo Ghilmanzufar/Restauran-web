@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link, usePage, router } from "@inertiajs/react";
 import { 
     BiHomeCircle, BiWallet, BiFoodMenu, BiReceipt, 
-    BiTable, BiLogOut, BiMenu, BiUser, BiTimeFive, BiGift, BiGroup, BiBarChartAlt2, BiShieldQuarter
+    BiTable, BiLogOut, BiMenu, BiUser, BiTimeFive, BiGift, BiGroup, BiBarChartAlt2, BiShieldQuarter, BiBell
 } from "react-icons/bi";
 
 export default function AdminLayout({ children, title }) {
@@ -49,6 +49,7 @@ export default function AdminLayout({ children, title }) {
         { name: "Manajemen User", icon: <BiGroup />, path: "/admin/users" },  
         { name: "Laporan Owner", icon: <BiBarChartAlt2 />, path: "/admin/reports" },
         { name: "Audit & Log", icon: <BiShieldQuarter />, path: "/admin/audit-logs" },
+        { name: "Panggilan Meja", icon: <BiBell />, path: "/admin/service-calls" }, // <--- TAMBAHKAN INI
     ];
 
     // Handle Smart Logout
