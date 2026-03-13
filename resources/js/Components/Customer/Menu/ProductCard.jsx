@@ -1,10 +1,17 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { BiPlus } from "react-icons/bi";
+import { BiPlus, BiSolidStar } from "react-icons/bi";
 
 const formatRupiah = (number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(number);
 
 export default function ProductCard({ product, qty, onClick }) {
+    // --- FUNGSI PINTAR DETEKSI SUMBER GAMBAR ---
+    const getImageUrl = (url) => {
+        if (!url) return null; // Jika tidak ada gambar
+        if (url.startsWith('http')) return url; // Jika gambar dari internet (Unsplash)
+        return `/storage/${url}`; // Jika gambar hasil upload lokal
+    };
+
     return (
         <motion.div 
             initial={{ opacity: 0, y: 10 }}
@@ -13,7 +20,21 @@ export default function ProductCard({ product, qty, onClick }) {
             className="bg-white p-3 rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-gray-100 flex gap-4 h-full"
         >
             <div onClick={onClick} className="w-28 h-28 shrink-0 rounded-xl bg-gray-50 overflow-hidden relative cursor-pointer active:scale-95 transition-transform">
-                <img src={product.image_url} alt={product.name} className={`w-full h-full object-cover transition-all duration-500 ${!product.is_available ? 'grayscale opacity-50' : ''}`} loading="lazy" />
+                
+                {/* 👇 IMPLEMENTASI FUNGSI GAMBAR PINTAR DI SINI 👇 */}
+                {product.image_url ? (
+                    <img 
+                        src={getImageUrl(product.image_url)} 
+                        alt={product.name} 
+                        className={`w-full h-full object-cover transition-all duration-500 ${!product.is_available ? 'grayscale opacity-50' : ''}`} 
+                        loading="lazy" 
+                    />
+                ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-300 font-bold uppercase tracking-widest text-[10px] bg-gray-200">
+                        No Image
+                    </div>
+                )}
+                
                 {!product.is_available && (
                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                         <span className="text-[10px] text-white font-bold bg-red-600 px-2 py-1 rounded-full shadow-sm">Habis</span>
@@ -24,7 +45,13 @@ export default function ProductCard({ product, qty, onClick }) {
             <div className="flex-1 flex flex-col justify-between py-1">
                 <div onClick={onClick} className="cursor-pointer">
                     <h3 className="font-bold text-slate-800 text-[15px] leading-snug line-clamp-2">{product.name}</h3>
-                    <p className="text-xs text-gray-400 mt-1 line-clamp-2 leading-relaxed">{product.description || "Rasanya enak banget, wajib coba!"}</p>
+                    
+                    <div className="flex items-center gap-1 mt-1 mb-1">
+                        <BiSolidStar className="text-yellow-400 text-xs" />
+                        <span className="text-[11px] font-black text-slate-600">{product.rating || '5.0'}</span>
+                    </div>
+
+                    <p className="text-xs text-gray-400 mt-0.5 line-clamp-2 leading-relaxed">{product.description || "Rasanya enak banget, wajib coba!"}</p>
                 </div>
 
                 <div className="flex justify-between items-end mt-3">

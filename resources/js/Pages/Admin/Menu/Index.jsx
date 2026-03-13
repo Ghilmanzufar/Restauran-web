@@ -52,6 +52,30 @@ export default function MenuIndex({ products, categories }) {
         categories: categories.length
     }), [products, categories]);
 
+    // --- STATE KATEGORI BARU ---
+    const [categoryModal, setCategoryModal] = useState({ isOpen: false, name: '' });
+
+    const handleSaveCategory = (e) => {
+        e.preventDefault();
+        router.post(route('admin.menu.categories.store'), { name: categoryModal.name }, {
+            onSuccess: () => {
+                toast.success('Kategori ditambahkan!');
+                setCategoryModal({ isOpen: false, name: '' });
+            },
+            onError: (errors) => toast.error(errors.name || 'Gagal menyimpan kategori')
+        });
+    };
+
+    const handleDeleteCategory = (categoryId) => {
+        if(confirm("Yakin ingin menghapus kategori ini?")) {
+            router.delete(route('admin.menu.categories.destroy', categoryId), {
+                preserveScroll: true,
+                onSuccess: () => toast.success("Kategori berhasil dihapus!"),
+                onError: (errors) => toast.error(errors.category || "Gagal menghapus kategori.")
+            });
+        }
+    };
+
     // --- ACTIONS ---
     const handleToggleStock = (productId, isAvailableNow) => {
         if (loadingToggles[productId]) return; // Cegah double click
@@ -76,6 +100,8 @@ export default function MenuIndex({ products, categories }) {
             }
         });
     };
+
+
 
     const openAddModal = () => { setEditingProduct(null); setIsFormModalOpen(true); };
     const openEditModal = (product) => { setEditingProduct(product); setIsFormModalOpen(true); };
@@ -126,9 +152,21 @@ export default function MenuIndex({ products, categories }) {
                     </div>
                 </div>
 
-                <button disabled={isFormModalOpen} onClick={openAddModal} className="w-full lg:w-auto px-6 py-2.5 bg-blue-600 text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-sm hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-50">
-                    <BiPlus className="text-xl" /> Tambah Menu Baru
-                </button>
+                {/* TOMBOL ACTION ATAS */}
+                <div className="flex gap-2">
+                    {/* 👇 TOMBOL TAMBAH KATEGORI 👇 */}
+                    <button 
+                        onClick={() => setCategoryModal({ isOpen: true, name: '' })} 
+                        className="px-4 py-2.5 bg-white text-slate-700 border border-slate-200 font-bold rounded-xl flex items-center gap-2 hover:bg-slate-50 transition-all shadow-sm"
+                    >
+                        <BiPlus className="text-xl" /> Kategori
+                    </button>
+                    
+                    {/* Tombol Tambah Menu Asli Anda */}
+                    <button onClick={() => { setIsFormModalOpen(true); setEditingProduct(null); }} className="px-6 py-2.5 bg-blue-600 text-white font-bold rounded-xl flex items-center gap-2 hover:bg-blue-700 transition-all shadow-md">
+                        <BiPlus className="text-xl" /> Tambah Menu
+                    </button>
+                </div>
             </div>
 
             {/* --- 3. FILTER KATEGORI (PILLS) --- */}
@@ -259,6 +297,55 @@ export default function MenuIndex({ products, categories }) {
                 onClose={() => setVariantManager({ isOpen: false, product: null })} 
                 product={variantManager.product} 
             />
+
+           {/* MODAL KELOLA KATEGORI */}
+            <Modal show={categoryModal.isOpen} onClose={() => setCategoryModal({ isOpen: false, name: '' })} maxWidth="sm">
+                <div className="p-6">
+                    <h2 className="text-xl font-black text-slate-900 mb-4">Kelola Kategori</h2>
+                    
+                    {/* Form Tambah Cepat */}
+                    <form onSubmit={handleSaveCategory} className="flex gap-2 mb-6">
+                        <input 
+                            type="text" 
+                            value={categoryModal.name} 
+                            onChange={e => setCategoryModal({ ...categoryModal, name: e.target.value })}
+                            className="w-full rounded-xl border-gray-300 focus:border-blue-500 text-sm font-bold" 
+                            placeholder="Ketik kategori baru..." 
+                            required 
+                        />
+                        <button type="submit" className="px-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shrink-0 transition-colors shadow-md">
+                            Tambah
+                        </button>
+                    </form>
+
+                    {/* Daftar Kategori (Bisa Dihapus) */}
+                    <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar pr-2">
+                        {categories.map(cat => (
+                            <div key={cat.id} className="flex justify-between items-center p-3 bg-slate-50 border border-slate-100 rounded-xl hover:bg-slate-100 transition-colors">
+                                <span className="font-bold text-slate-700">{cat.name}</span>
+                                <button 
+                                    onClick={() => handleDeleteCategory(cat.id)}
+                                    className="text-red-500 hover:bg-red-100 p-2 rounded-lg transition-colors"
+                                    title="Hapus Kategori"
+                                >
+                                    <BiTrash className="text-lg" />
+                                </button>
+                            </div>
+                        ))}
+                        
+                        {categories.length === 0 && (
+                            <p className="text-center text-slate-400 text-sm font-bold py-4">Belum ada kategori.</p>
+                        )}
+                    </div>
+
+                    {/* Tombol Tutup */}
+                    <div className="mt-6 pt-4 border-t border-slate-100">
+                        <button onClick={() => setCategoryModal({ isOpen: false, name: '' })} className="w-full py-2.5 rounded-xl font-bold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">
+                            Tutup
+                        </button>
+                    </div>
+                </div>
+            </Modal>
 
         </AdminLayout>
     );

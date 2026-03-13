@@ -84,10 +84,14 @@ class OrderController extends Controller
         ->where('is_active', true)
         ->get();
 
+        // Ambil 1 Banner terbaru yang statusnya Aktif
+    $activeBanner = \App\Models\Banner::where('is_active', true)->latest()->first();
+
         // 4. RENDER HALAMAN
         return Inertia::render('Customer/Menu', [
             'table' => $table,
-            'categories' => $categories
+            'categories' => $categories,
+            'activeBanner' => $activeBanner
         ]);
     }
 
@@ -187,6 +191,7 @@ class OrderController extends Controller
         Log::info("🔥 [ORDER] Request dari Meja: $tableNumber");
 
         // 2. VALIDASI DATA
+        // 2. VALIDASI DATA
         try {
             $validated = $request->validate([
                 'customer_name' => 'required|string|max:50',
@@ -196,6 +201,7 @@ class OrderController extends Controller
                 'items.*.qty' => 'required|integer|min:1', 
                 'items.*.variants' => 'nullable|array',
                 'items.*.variants.*.product_variant_item_id' => 'required|exists:product_variant_items,id',
+                'items.*.note' => 'nullable|string|max:250', // <--- TAMBAHKAN BARIS INI
                 'notes' => 'nullable|string|max:200',
                 'promo_id' => 'nullable|exists:promos,id'
             ]);

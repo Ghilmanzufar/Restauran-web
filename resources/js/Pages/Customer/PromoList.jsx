@@ -22,9 +22,9 @@ export default function PromoList({ table, promos }) {
         setCartTotal(summary.totalPrice);
     }, []);
 
-    // LOGIKA "PAKAI PROMO"
+    // LOGIKA "PAKAI PROMO" YANG SUDAH CERDAS
     const handleApplyPromo = (promo) => {
-        // Validasi Double Check (Keamanan Tambahan)
+        // 1. Validasi Minimal Belanja
         if (cartTotal < promo.min_spend) {
             toast.error("Syarat belum terpenuhi!", {
                 description: `Minimal belanja ${formatRupiah(promo.min_spend)} untuk promo ini.`
@@ -32,14 +32,46 @@ export default function PromoList({ table, promos }) {
             return;
         }
 
+        // 2. VALIDASI TARGET MENU & KATEGORI (SATPAM BARU 👮‍♂️)
+        if (promo.target_type !== 'all') {
+            // Ambil data keranjang saat ini
+            const cartData = localStorage.getItem(`cart_${table.table_number}`);
+            const cartItems = cartData ? JSON.parse(cartData) : [];
+            let isTargetInCart = false;
+
+            // Periksa satu per satu isi keranjang
+            cartItems.forEach(item => {
+                // Mendukung 2 jenis struktur cart (berjaga-jaga)
+                const productId = item.product ? item.product.id : item.id;
+                const categoryId = item.product ? item.product.category_id : item.category_id;
+
+                if (promo.target_type === 'product' && productId === promo.target_id) {
+                    isTargetInCart = true;
+                }
+                if (promo.target_type === 'category' && categoryId === promo.target_id) {
+                    isTargetInCart = true;
+                }
+            });
+
+            // Jika menu/kategori yang dicari tidak ada di keranjang, TOLAK!
+            if (!isTargetInCart) {
+                toast.error("Promo Tidak Berlaku!", {
+                    description: `Voucher ini khusus untuk ${promo.target_type === 'product' ? 'menu' : 'kategori'} tertentu yang belum ada di pesanan Anda.`
+                });
+                return;
+            }
+        }
+
+        // 3. Jika Lolos Semua Validasi, Simpan Promonya
         const promoData = {
             id: promo.id,
-            name: promo.name,
             code: promo.code,
             type: promo.type,
             discount_amount: promo.discount_amount,
             max_discount: promo.max_discount,
-            min_spend: promo.min_spend
+            min_spend: promo.min_spend,
+            target_type: promo.target_type, // Simpan tipe target agar keranjang tahu
+            target_id: promo.target_id      // Simpan ID target agar keranjang tahu
         };
 
         localStorage.setItem(`active_promo_${table.table_number}`, JSON.stringify(promoData));

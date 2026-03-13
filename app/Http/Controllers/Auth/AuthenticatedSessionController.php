@@ -24,16 +24,22 @@ class AuthenticatedSessionController extends Controller
         ]);
     }
 
-    /**
-     * Handle an incoming authentication request.
-     */
     public function store(LoginRequest $request): RedirectResponse
     {
         $request->authenticate();
-
         $request->session()->regenerate();
 
-        // Jika Anda ingin mengarahkannya ke halaman utama (Dashboard Admin)
+        // AMBIL ROLE USER YANG BARU LOGIN
+        $role = $request->user()->role;
+
+        // REDIRECT BERDASARKAN ROLE
+        if ($role === 'owner') {
+            return redirect()->intended(route('admin.reports.index', absolute: false));
+        } elseif ($role === 'dapur') {
+            return redirect()->intended(route('admin.kitchen.index', absolute: false));
+        }
+
+        // DEFAULT UNTUK ADMIN & KASIR
         return redirect()->intended(route('admin.dashboard', absolute: false));
     }
 

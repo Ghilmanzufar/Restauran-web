@@ -28,13 +28,16 @@ class DashboardController extends Controller
             ->where('payment_status', 'unpaid')
             ->where('order_status', '!=', 'cancelled')
             ->count();
+            
+        // --- TAMBAHAN BARU: Hitung Pesanan Sedang Dimasak ---
+        $processingCount = Order::whereDate('created_at', $today)
+            ->where('order_status', 'processing')
+            ->count();
 
-        // --- TAMBAHAN BARU: Hitung Meja Aktif ---
         $activeTablesCount = Table::whereHas('orders', function ($query) use ($today) {
             $query->whereDate('created_at', $today)
                   ->whereNotIn('order_status', ['completed', 'cancelled']);
         })->count();
-        // ----------------------------------------
 
         // 2. Ambil Status Meja (beserta order aktifnya jika ada)
         $tables = Table::with(['orders' => function ($query) use ($today) {
@@ -55,7 +58,8 @@ class DashboardController extends Controller
                 'revenue' => $revenueToday,
                 'total_orders' => $totalOrders,
                 'unpaid_count' => $unpaidOrdersCount,
-                'active_tables' => $activeTablesCount, // Kirim ke Frontend
+                'processing_count' => $processingCount, // Kirim ke Frontend
+                'active_tables' => $activeTablesCount, 
             ],
             'tables' => $tables,
             'recentOrders' => $recentOrders,

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
-    BiX, BiMinus, BiPlus, BiSolidStar, BiNote, BiCheck, BiDish 
+    BiX, BiMinus, BiPlus, BiSolidStar, BiNote, BiCheck, BiDish,  
 } from "react-icons/bi";
 
 // Helper Format Rupiah
@@ -150,8 +150,11 @@ export default function ProductDetailModal({ isOpen, onClose, product, onAddToCa
 
                                     {/* Rating & Info */}
                                     <div className="flex items-center gap-3 mt-4">
-                                        <div className="flex items-center gap-1 bg-orange-100 text-orange-700 px-2 py-1 rounded-lg text-xs font-bold">
-                                            <BiSolidStar className="text-orange-500" /> 4.8
+                                        <div className="flex items-center gap-1 mt-2">
+                                            <BiSolidStar className="text-yellow-400 text-lg" />
+                                            <span className="font-bold text-slate-700">
+                                                {product.rating || '5.0'} {/* <--- UBAH BAGIAN INI */}
+                                            </span>
                                         </div>
                                         <div className="text-xs text-slate-400 font-medium flex items-center gap-1">
                                             <BiDish /> Stok: {product.stock_qty}

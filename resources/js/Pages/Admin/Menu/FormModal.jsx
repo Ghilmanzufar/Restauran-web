@@ -11,6 +11,8 @@ export default function FormModal({ isOpen, onClose, product = null, categories 
         name: '',
         category_id: '',
         price: '',
+        stock_qty: '',
+        rating: '5.0',
         description: '',
         image: null,
         _method: isEdit ? 'put' : 'post', // Trik Inertia untuk upload file saat Edit
@@ -24,6 +26,8 @@ export default function FormModal({ isOpen, onClose, product = null, categories 
                     name: product.name || '',
                     category_id: product.category_id || '',
                     price: product.price || '',
+                    stock_qty: product.stock_qty !== undefined ? product.stock_qty : 0,
+                    rating: product.rating || '5.0',
                     description: product.description || '',
                     image: null, 
                     _method: 'put',
@@ -108,12 +112,38 @@ export default function FormModal({ isOpen, onClose, product = null, categories 
                             </div>
                         </div>
 
-                        {/* HARGA */}
-                        <div>
-                            <label className="block text-sm font-bold text-slate-700 mb-2">Harga (Rp) <span className="text-red-500">*</span></label>
-                            <input type="number" value={data.price} onChange={e => setData('price', e.target.value)} className="w-full rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500 shadow-sm text-xl font-black text-slate-900" placeholder="25000" required />
-                            {errors.price && <p className="text-red-500 text-xs font-bold mt-1">{errors.price}</p>}
+                        {/* Harga, Stok & Rating (Grid 3 Kolom) */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-2">Harga (Rp)</label>
+                                <input type="number" value={data.price} onChange={e => setData('price', e.target.value)} className="w-full rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500 shadow-sm font-black text-slate-900" placeholder="Msl: 25000" required />
+                                {errors.price && <p className="text-red-500 text-xs font-bold mt-1">{errors.price}</p>}
+                            </div>
+                            
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-2">Sisa Porsi (Stok)</label>
+                                <input type="number" value={data.stock_qty} onChange={e => setData('stock_qty', e.target.value)} className="w-full rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500 shadow-sm font-black text-slate-900" placeholder="Msl: 50" required />
+                                {errors.stock_qty && <p className="text-red-500 text-xs font-bold mt-1">{errors.stock_qty}</p>}
+                            </div>
+
+                            {/* 👇 KOTAK INPUT RATING BARU 👇 */}
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-2">Rating (⭐)</label>
+                                <input 
+                                    type="number" 
+                                    step="0.1" 
+                                    min="1" 
+                                    max="5" 
+                                    value={data.rating} 
+                                    onChange={e => setData('rating', e.target.value)} 
+                                    className="w-full rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500 shadow-sm font-black text-slate-900" 
+                                    placeholder="Msl: 4.8" 
+                                    required 
+                                />
+                                {errors.rating && <p className="text-red-500 text-xs font-bold mt-1">{errors.rating}</p>}
+                            </div>
                         </div>
+
 
                         {/* DESKRIPSI */}
                         <div>

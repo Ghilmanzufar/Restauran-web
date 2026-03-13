@@ -32,4 +32,11 @@ class Table extends Model
     {
         return $this->hasOne(OrderSession::class)->where('status', '!=', 'closed')->latest();
     }
+
+    // --- TAMBAHKAN BLOK RELASI INI ---
+    public function serviceCalls()
+    {
+        // Kita hubungkan model Table ke ServiceCall melalui kolom 'table_number'
+        return $this->hasMany(ServiceCall::class, 'table_number', 'table_number');
+    }
 }

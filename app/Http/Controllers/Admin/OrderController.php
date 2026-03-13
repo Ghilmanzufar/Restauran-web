@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Models\ActivityLog;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Carbon\Carbon;
@@ -76,5 +77,40 @@ class OrderController extends Controller
                 'search' => $request->input('search', ''),
             ]
         ]);
+    }
+
+    // --- FUNGSI UNTUK UPDATE STATUS DARI DAPUR ---\
+    public function updateStatus(\Illuminate\Http\Request $request, \App\Models\Order $order)
+    {
+        $request->validate([
+            'order_status' => 'required|in:pending,processing,ready,completed,cancelled' 
+        ]);
+
+        $oldData = $order->getOriginal();
+
+        $order->update([
+            'order_status' => $request->order_status
+        ]);
+
+        $newData = $order->getChanges();
+
+        if (!empty($newData)) {
+            ActivityLog::create([
+                'user_id' => auth()->id(),
+                'action' => 'ORDER_STATUS_UPDATE',
+                'entity_type' => 'ORDER',
+                'entity_id' => $order->id,
+                'description' => "Mengubah status pesanan #{$order->id} menjadi " . strtoupper($request->order_status),
+                'old_values' => array_intersect_key($oldData, $newData),
+                'new_values' => $newData,
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'severity' => 'INFO'
+            ]);
+        }
+
+        
+
+        return back();
     }
 }

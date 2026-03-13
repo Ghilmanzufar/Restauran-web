@@ -1,145 +1,207 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { Head, router } from "@inertiajs/react";
+import React, { useState, useEffect, useRef } from "react";
+import { Head, router, Link } from "@inertiajs/react";
 import AdminLayout from "@/Layouts/AdminLayout";
-import { 
-    BiShieldQuarter, BiSearch, BiFilterAlt, BiCalendarAlt, 
-    BiErrorCircle, BiEdit, BiTrash, BiCheckCircle
-} from "react-icons/bi";
+import { BiSearch, BiFilterAlt, BiDownload, BiInfoCircle, BiDesktop, BiGlobe } from "react-icons/bi";
 
-// Helper untuk ikon berdasarkan jenis aksi
-const getActionIcon = (action) => {
-    if (action.includes('DELETE') || action.includes('CANCEL')) return <BiErrorCircle className="text-red-500" />;
-    if (action.includes('UPDATE') || action.includes('EDIT')) return <BiEdit className="text-orange-500" />;
-    if (action.includes('CREATE') || action.includes('PAID')) return <BiCheckCircle className="text-emerald-500" />;
-    return <BiShieldQuarter className="text-blue-500" />;
-};
-
-export default function AuditIndex({ logs, actionTypes, filters }) {
+export default function AuditIndex({ logs, filters, actionTypes }) {
+    // State Filter
     const [search, setSearch] = useState(filters.search || "");
-    const [actionType, setActionType] = useState(filters.action_type || "all");
+    const [actionType, setActionType] = useState(filters.action_type || "");
+    const [severity, setSeverity] = useState(filters.severity || "");
     const [startDate, setStartDate] = useState(filters.start_date || "");
     const [endDate, setEndDate] = useState(filters.end_date || "");
+    
+    // State Modal Detail
+    const [selectedLog, setSelectedLog] = useState(null);
 
-    const applyFilters = useCallback(() => {
+    // 1. DEBOUNCE UNTUK PENCARIAN (Tidak perlu tekan Enter)
+    const isFirstRender = useRef(true);
+    useEffect(() => {
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+            return;
+        }
+        const delayBounceFn = setTimeout(() => {
+            applyFilters(search); // Kirim parameter search terkini
+        }, 500); // Tunggu 500ms setelah user berhenti mengetik
+        return () => clearTimeout(delayBounceFn);
+    }, [search]);
+
+    // 2. FUNGSI APPLY FILTER (Digunakan oleh tombol atau Debounce)
+    const applyFilters = (currentSearch = search) => {
         router.get(route('admin.audit.index'), {
-            search, action_type: actionType, start_date: startDate, end_date: endDate
-        }, { preserveState: true, preserveScroll: true, replace: true });
-    }, [search, actionType, startDate, endDate]);
-
-    useEffect(() => { applyFilters(); }, [actionType, startDate, endDate]);
-
-    const handleSearch = (e) => {
-        if (e.key === 'Enter') applyFilters();
+            search: currentSearch,
+            action_type: actionType,
+            severity: severity,
+            start_date: startDate,
+            end_date: endDate
+        }, { preserveState: true, preserveScroll: true });
     };
 
+    // --- 2. PERBAIKAN FITUR EXPORT (DIRECT BROWSER DOWNLOAD) ---
+    const handleExport = () => {
+        // Rakit parameter pencarian yang aktif saja agar URL tidak error
+        const queryParams = new URLSearchParams();
+        if (search) queryParams.append('search', search);
+        if (actionType) queryParams.append('action_type', actionType);
+        if (severity) queryParams.append('severity', severity);
+        if (startDate) queryParams.append('start_date', startDate);
+        if (endDate) queryParams.append('end_date', endDate);
+
+        // Paksa browser membuka link secara Native (Tanpa AJAX Inertia)
+        const exportUrl = `${route('admin.audit.export')}?${queryParams.toString()}`;
+        window.location.href = exportUrl;
+    };
+
+    // Pewarnaan Badge Severity
+    const getSeverityBadge = (level) => {
+        switch(level) {
+            case 'CRITICAL': return "bg-red-100 text-red-700 border-red-200";
+            case 'WARNING': return "bg-orange-100 text-orange-700 border-orange-200";
+            default: return "bg-blue-100 text-blue-700 border-blue-200";
+        }
+    };
+
+    // --- 1. FITUR REAL-TIME (AUTO REFRESH 5 DETIK) ---
+    useEffect(() => {
+        const interval = setInterval(() => {
+            // Reload HANYA data 'logs' dari server secara background
+            // preserveScroll & preserveState mencegah halaman melompat/reset
+            router.reload({ 
+                only: ['logs'], 
+                preserveScroll: true, 
+                preserveState: true 
+            });
+        }, 5000); // 5000 ms = 5 detik
+
+        // Bersihkan interval saat user pindah halaman
+        return () => clearInterval(interval);
+    }, []);
+
     return (
-        <AdminLayout title="Audit & Log Sistem">
-            <Head title="Audit Log" />
+        <AdminLayout title="Audit & Security Logs">
+            <Head title="System Audit" />
 
-            <div className="mb-8">
-                <h2 className="text-xl font-black text-slate-900 flex items-center gap-2"><BiShieldQuarter className="text-blue-600 text-2xl" /> Keamanan & Rekam Jejak</h2>
-                <p className="text-sm font-semibold text-gray-500 mt-1">Pantau perubahan harga, pembatalan pesanan, dan aktivitas staf.</p>
-            </div>
+            {/* HEADER & FILTER */}
+            <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm mb-6">
+                <div className="flex flex-col lg:flex-row gap-4 justify-between items-end">
+                    
+                    {/* Input Pencarian Debounce */}
+                    <div className="w-full lg:w-1/3 relative">
+                        <BiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input 
+                            type="text" 
+                            placeholder="Cari deskripsi, aktor, IP, atau ID Target..." 
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 bg-slate-50 border-gray-200 rounded-xl text-sm focus:border-blue-500"
+                        />
+                    </div>
 
-            {/* KONTROL FILTER */}
-            <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-6 flex flex-col lg:flex-row gap-4 justify-between items-center">
-                
-                <div className="relative w-full lg:w-96">
-                    <BiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
-                    <input 
-                        type="text" placeholder="Cari aktivitas atau nama staf... (Enter)" 
-                        value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={handleSearch}
-                        className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2.5 pl-11 pr-4 text-sm font-semibold focus:ring-2 focus:ring-blue-500/20"
-                    />
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
-                    {/* Filter Kategori */}
-                    <div className="relative shrink-0">
-                        <select 
-                            value={actionType} onChange={(e) => setActionType(e.target.value)}
-                            className="appearance-none bg-gray-50 border border-gray-200 rounded-xl py-2.5 pl-10 pr-8 text-sm font-semibold text-slate-600 w-full"
-                        >
-                            <option value="all">Semua Aktivitas</option>
-                            <option value="ORDER">Pesanan (Order)</option>
-                            <option value="MENU">Menu & Harga</option>
-                            <option value="USER">Manajemen Staf</option>
-                            {actionTypes.map((type, i) => <option key={i} value={type}>{type}</option>)}
+                    {/* Filter Lainnya dengan Tombol Apply */}
+                    <div className="w-full lg:w-auto flex flex-wrap items-center gap-3">
+                        <select value={severity} onChange={e => setSeverity(e.target.value)} className="py-2 px-3 bg-slate-50 border-gray-200 rounded-xl text-sm">
+                            <option value="">Semua Level</option>
+                            <option value="INFO">INFO</option>
+                            <option value="WARNING">WARNING</option>
+                            <option value="CRITICAL">CRITICAL</option>
                         </select>
-                        <BiFilterAlt className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                    </div>
-
-                    {/* Filter Tanggal */}
-                    <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 shrink-0">
-                        <BiCalendarAlt className="text-gray-400 text-lg" />
-                        <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="border-none bg-transparent text-sm font-bold text-slate-600 p-1 focus:ring-0" />
-                        <span className="text-gray-300">-</span>
-                        <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="border-none bg-transparent text-sm font-bold text-slate-600 p-1 focus:ring-0" />
+                        <select value={actionType} onChange={e => setActionType(e.target.value)} className="py-2 px-3 bg-slate-50 border-gray-200 rounded-xl text-sm">
+                            <option value="">Semua Aksi</option>
+                            {/* Key tidak lagi menggunakan index */}
+                            {actionTypes.map(type => <option key={type} value={type}>{type}</option>)}
+                        </select>
+                        <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="py-2 px-3 bg-slate-50 border-gray-200 rounded-xl text-sm" />
+                        <span className="text-gray-400">-</span>
+                        <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="py-2 px-3 bg-slate-50 border-gray-200 rounded-xl text-sm" />
+                        
+                        {/* Tombol Apply untuk filter Dropdown/Date */}
+                        <button onClick={() => applyFilters()} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2">
+                            <BiFilterAlt /> Terapkan
+                        </button>
+                        
+                        <button onClick={handleExport} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2">
+                            <BiDownload /> Export
+                        </button>
                     </div>
                 </div>
             </div>
 
-            {/* TABEL DATA LOG */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="bg-slate-50 border-b border-gray-100 text-xs uppercase tracking-widest text-slate-500 font-black">
-                                <th className="p-4 pl-6 w-48">Waktu Kejadian</th>
-                                <th className="p-4 w-48">Pelaku (Aktor)</th>
-                                <th className="p-4 w-48">Tipe Aksi</th>
-                                <th className="p-4 pr-6">Deskripsi Lengkap</th>
+            {/* TABEL LOG */}
+            <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+                <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 text-slate-500 font-bold border-b border-gray-100">
+                        <tr>
+                            <th className="p-4">Waktu</th>
+                            <th className="p-4">Level</th>
+                            <th className="p-4">Aktor</th>
+                            <th className="p-4">Target Entity</th>
+                            <th className="p-4">Deskripsi Aksi</th>
+                            <th className="p-4 text-center">Detail</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                        {logs.data.map(log => (
+                            <tr key={log.id} className={`hover:bg-slate-50 transition-colors ${log.severity === 'CRITICAL' ? 'bg-red-50/30' : ''}`}>
+                                <td className="p-4 whitespace-nowrap text-xs text-gray-500">{new Date(log.created_at).toLocaleString('id-ID')}</td>
+                                <td className="p-4"><span className={`px-2 py-1 text-[10px] font-black rounded border ${getSeverityBadge(log.severity)}`}>{log.severity}</span></td>
+                                <td className="p-4 font-bold text-slate-800">{log.user?.name || 'System'}</td>
+                                <td className="p-4 font-mono text-xs text-slate-600 bg-slate-100 px-2 rounded inline-block mt-3">{log.entity_type} {log.entity_id ? `#${log.entity_id}` : ''}</td>
+                                <td className="p-4 text-slate-700 font-medium">{log.description}</td>
+                                <td className="p-4 text-center">
+                                    <button onClick={() => setSelectedLog(log)} className="text-blue-500 hover:text-blue-700 bg-blue-50 p-2 rounded-lg transition-colors">
+                                        <BiInfoCircle className="text-lg" />
+                                    </button>
+                                </td>
                             </tr>
-                        </thead>
-                        <tbody className="text-sm font-semibold text-slate-700 divide-y divide-gray-50">
-                            {logs.data.length === 0 ? (
-                                <tr><td colSpan="4" className="py-12 text-center text-gray-400 font-bold">Tidak ada catatan aktivitas yang sesuai.</td></tr>
-                            ) : (
-                                logs.data.map(log => (
-                                    <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
-                                        <td className="p-4 pl-6">
-                                            <div className="text-xs text-gray-400">{new Date(log.created_at).toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</div>
-                                            <div className="font-bold text-slate-800">{new Date(log.created_at).toLocaleTimeString('id-ID')}</div>
-                                        </td>
-                                        <td className="p-4">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-6 h-6 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center font-black text-[10px] uppercase">
-                                                    {log.user?.name ? log.user.name.charAt(0) : '?'}
-                                                </div>
-                                                <span className="font-bold text-slate-900">{log.user?.name || 'Sistem / Terhapus'}</span>
-                                            </div>
-                                        </td>
-                                        <td className="p-4">
-                                            <div className="flex items-center gap-2">
-                                                {getActionIcon(log.action)}
-                                                <span className="text-[10px] font-black uppercase tracking-wider bg-gray-100 px-2 py-1 rounded-md text-slate-600">
-                                                    {log.action.replace(/_/g, ' ')}
-                                                </span>
-                                            </div>
-                                        </td>
-                                        <td className="p-4 pr-6 text-gray-600">
-                                            {log.description}
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-
-                {/* Pagination */}
-                {logs.links && logs.links.length > 3 && (
-                    <div className="p-4 border-t border-gray-100 flex items-center justify-center gap-1 bg-slate-50">
-                        {logs.links.map((link, i) => (
-                            <button 
-                                key={i} onClick={() => link.url && router.visit(link.url, { preserveScroll: true })}
-                                disabled={!link.url} dangerouslySetInnerHTML={{ __html: link.label }}
-                                className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${link.active ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-gray-200'} ${!link.url && 'opacity-30 cursor-not-allowed'}`}
-                            />
                         ))}
-                    </div>
-                )}
+                    </tbody>
+                </table>
             </div>
+
+            {/* MODAL DETAIL FORENSIK */}
+            {selectedLog && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden">
+                        <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-slate-50">
+                            <h3 className="font-black text-slate-800">Detail Aktivitas (Forensik)</h3>
+                            <button onClick={() => setSelectedLog(null)} className="text-gray-400 hover:text-red-500 font-bold text-xl">&times;</button>
+                        </div>
+                        <div className="p-6 space-y-6">
+                            
+                            {/* Identitas Network */}
+                            <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-gray-100">
+                                <div>
+                                    <p className="text-xs font-bold text-gray-400 flex items-center gap-1 mb-1"><BiGlobe /> IP Address</p>
+                                    <p className="font-mono text-sm text-slate-800 font-bold">{selectedLog.ip_address || 'Tidak terekam'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs font-bold text-gray-400 flex items-center gap-1 mb-1"><BiDesktop /> User Agent (Device)</p>
+                                    <p className="text-xs text-slate-600 leading-tight">{selectedLog.user_agent || 'Tidak terekam'}</p>
+                                </div>
+                            </div>
+
+                            {/* Data Before/After (Hanya tampil jika ada perubahan data) */}
+                            {(selectedLog.old_values || selectedLog.new_values) && (
+                                <div className="grid grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <div className="bg-red-100 text-red-700 text-xs font-bold px-3 py-1 rounded-md inline-block">Old Value (Sebelum)</div>
+                                        <pre className="bg-slate-900 text-red-400 p-4 rounded-xl text-xs overflow-x-auto whitespace-pre-wrap font-mono">
+                                            {selectedLog.old_values ? JSON.stringify(selectedLog.old_values, null, 2) : 'Null / Baru Dibuat'}
+                                        </pre>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="bg-emerald-100 text-emerald-700 text-xs font-bold px-3 py-1 rounded-md inline-block">New Value (Sesudah)</div>
+                                        <pre className="bg-slate-900 text-emerald-400 p-4 rounded-xl text-xs overflow-x-auto whitespace-pre-wrap font-mono">
+                                            {selectedLog.new_values ? JSON.stringify(selectedLog.new_values, null, 2) : 'Null / Dihapus'}
+                                        </pre>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </AdminLayout>
     );
 }

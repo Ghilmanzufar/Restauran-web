@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Head, Link } from "@inertiajs/react";
 import { CartStore } from "@/Utils/CartStore";
 import { BiShoppingBag, BiSolidStar, BiSearch, BiRightArrowAlt } from "react-icons/bi";
-import ProductDetailModal from '@/Components/ProductDetailModal';
+import ProductDetailModal from '@/Components/Customer/Menu/ProductDetailModal';
 
 // Import Komponen Baru
 import MenuHeader from "@/Components/Customer/Menu/MenuHeader";
@@ -11,7 +11,7 @@ import ProductCard from "@/Components/Customer/Menu/ProductCard";
 
 const formatRupiah = (num) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(num);
 
-export default function Menu({ table, categories }) {
+export default function Menu({ table, categories, activeBanner }) {
     const [activeCategory, setActiveCategory] = useState(categories[0]?.id || 0);
     const [scrolled, setScrolled] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
@@ -19,6 +19,7 @@ export default function Menu({ table, categories }) {
     const [qtyMap, setQtyMap] = useState({});
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    
 
     useEffect(() => {
         refreshCartData();
@@ -78,20 +79,36 @@ export default function Menu({ table, categories }) {
                         <motion.div 
                             initial={{ opacity: 0, y: 20 }} 
                             animate={{ opacity: 1, y: 0 }} 
-                            whileTap={{ scale: 0.98 }} // Efek animasi saat diklik
-                            className="bg-slate-900 rounded-2xl p-5 text-white relative overflow-hidden shadow-xl cursor-pointer group"
+                            whileTap={{ scale: 0.98 }} 
+                            className="bg-slate-900 rounded-2xl relative overflow-hidden shadow-xl cursor-pointer group min-h-[140px] flex items-center"
                         >
-                            <div className="relative z-10 w-[65%]">
-                                <div className="flex items-center gap-1 mb-2">
-                                    <BiSolidStar className="text-yellow-400 text-xs" />
-                                    <span className="text-orange-400 font-bold text-[10px] uppercase">Promo Spesial</span>
-                                </div>
-                                <h2 className="text-lg font-bold leading-tight mb-1">Makan Hemat Pakai Voucher!</h2>
-                                <div className="flex items-center gap-1 text-xs text-slate-300 group-hover:text-white transition-colors">
-                                    <span>Cek voucher tersedia</span> <BiRightArrowAlt />
-                                </div>
-                            </div>
-                            <img src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=300&q=80" className="absolute bottom-[-10px] right-[-10px] w-32 h-32 object-cover rounded-full border-4 border-slate-900 rotate-12 group-hover:rotate-6 transition-transform duration-500" alt="Promo" />
+                            {/* 👇 JIKA ADMIN MENGUPLOAD BANNER EVENT (RAMADHAN/NATAL) 👇 */}
+                            {activeBanner?.image_url ? (
+                                <img 
+                                    src={`/storage/${activeBanner.image_url}`} 
+                                    alt={activeBanner.title || "Event Spesial"} 
+                                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
+                                />
+                            ) : (
+                                /* 👇 TAMPILAN DEFAULT JIKA TIDAK ADA BANNER AKTIF 👇 */
+                                <>
+                                    <div className="relative z-10 w-[65%] p-5 text-white">
+                                        <div className="flex items-center gap-1 mb-2">
+                                            <BiSolidStar className="text-yellow-400 text-xs" />
+                                            <span className="text-orange-400 font-bold text-[10px] uppercase">Promo Spesial</span>
+                                        </div>
+                                        <h2 className="text-lg font-bold leading-tight mb-1">Makan Hemat Pakai Voucher!</h2>
+                                        <div className="flex items-center gap-1 text-xs text-slate-300 group-hover:text-white transition-colors">
+                                            <span>Cek voucher tersedia</span> <BiRightArrowAlt />
+                                        </div>
+                                    </div>
+                                    <img 
+                                        src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=300&q=80" 
+                                        className="absolute bottom-[-10px] right-[-10px] w-32 h-32 object-cover rounded-full border-4 border-slate-900 rotate-12 group-hover:rotate-6 transition-transform duration-500" 
+                                        alt="Promo Default" 
+                                    />
+                                </>
+                            )}
                         </motion.div>
                     </Link>
                 )}

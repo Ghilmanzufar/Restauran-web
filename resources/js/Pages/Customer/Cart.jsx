@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Head, Link, router } from "@inertiajs/react"; 
 import { CartStore } from "@/Utils/CartStore"; 
 import { BiArrowBack, BiRightArrowAlt } from "react-icons/bi";
-import ProductDetailModal from '@/Components/ProductDetailModal';
+import ProductDetailModal from '@/Components/Customer/Menu/ProductDetailModal';
 import { Toaster, toast } from "sonner"; 
 import { AnimatePresence } from "framer-motion";
 

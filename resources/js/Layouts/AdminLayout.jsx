@@ -2,8 +2,10 @@ import React, { useState, useEffect } from "react";
 import { Link, usePage, router } from "@inertiajs/react";
 import { 
     BiHomeCircle, BiWallet, BiFoodMenu, BiReceipt, 
-    BiTable, BiLogOut, BiMenu, BiUser, BiTimeFive, BiGift, BiGroup, BiBarChartAlt2, BiShieldQuarter, BiBell
+    BiTable, BiLogOut, BiMenu, BiUser, BiTimeFive, BiGift, BiGroup, BiBarChartAlt2, BiShieldQuarter, BiBell, BiDish, BiImage, BiCog
 } from "react-icons/bi";
+import axios from "axios";
+import { Toaster, toast } from "sonner";
 
 export default function AdminLayout({ children, title }) {
     const { url } = usePage();
@@ -36,21 +38,70 @@ export default function AdminLayout({ children, title }) {
     }) + ' WIB';
 
     // ==========================================
-    // MENU SIDEBAR DIATUR DI SINI
+    // MENU SIDEBAR DIATUR DI SINI BERDASARKAN ROLE
     // ==========================================
-    const menuItems = [
-        { name: "Dashboard", icon: <BiHomeCircle />, path: "/admin/dashboard" },
-        { name: "POS Kasir", icon: <BiWallet />, path: "/admin/pos" },
-        { name: "Manajemen Order", icon: <BiReceipt />, path: "/admin/orders" }, 
-        { name: "Menu & Varian", icon: <BiFoodMenu />, path: "/admin/menu" },    
-        { name: "Manajemen Meja", icon: <BiTable />, path: "/admin/tables" },
-        // --- TAMBAHAN MENU PROMO ---
-        { name: "Promo & Voucher", icon: <BiGift />, path: "/admin/promos" }, 
-        { name: "Manajemen User", icon: <BiGroup />, path: "/admin/users" },  
-        { name: "Laporan Owner", icon: <BiBarChartAlt2 />, path: "/admin/reports" },
-        { name: "Audit & Log", icon: <BiShieldQuarter />, path: "/admin/audit-logs" },
-        { name: "Panggilan Meja", icon: <BiBell />, path: "/admin/service-calls" }, // <--- TAMBAHKAN INI
+    const userRole = usePage().props.auth.user.role; // Ambil role aktif
+
+    // --- LOGIKA NOTIFIKASI GLOBAL (PANGGILAN MEJA) ---
+    const [pendingCalls, setPendingCalls] = useState(0);
+
+    useEffect(() => {
+        // Hanya jalankan radar ini untuk Kasir, Admin, dan Owner
+        if (!['kasir', 'admin', 'owner'].includes(userRole)) return;
+
+        const checkServiceCalls = async () => {
+            try {
+                const res = await axios.get('/admin/api/service-calls/pending');
+                const { count, latest } = res.data;
+                
+                setPendingCalls(count);
+
+                // Jika ada panggilan baru, munculkan Pop-up!
+                if (count > 0 && latest) {
+                    // Gunakan sessionStorage agar notif tidak terus-terusan berbunyi saat kasir pindah halaman
+                    const lastId = sessionStorage.getItem('lastServiceCallId');
+                    if (lastId !== latest.id.toString()) {
+                        toast.warning(`Meja ${latest.table_number} Memanggil!`, {
+                            description: `Pelanggan butuh bantuan.`,
+                            action: {
+                                label: 'Lihat Detail',
+                                onClick: () => router.get('/admin/service-calls')
+                            },
+                            duration: 10000, // Tampil 10 detik agar kasir sempat baca
+                        });
+                        sessionStorage.setItem('lastServiceCallId', latest.id);
+                    }
+                }
+            } catch (error) {
+                console.error('Gagal mengecek panggilan meja:', error);
+            }
+        };
+
+        checkServiceCalls(); // Cek langsung saat halaman dibuka
+        const interval = setInterval(checkServiceCalls, 10000); // Cek secara diam-diam tiap 10 detik
+
+        return () => clearInterval(interval);
+    }, [userRole]);
+
+    const rawMenuItems = [
+        { name: "Dashboard", icon: <BiHomeCircle />, path: "/admin/dashboard", roles: ['owner', 'admin', 'kasir'] },
+        { name: "POS Kasir", icon: <BiWallet />, path: "/admin/pos", roles: ['owner', 'admin', 'kasir'] },
+        { name: "Panggilan Meja", icon: <BiBell />, path: "/admin/service-calls", roles: ['owner', 'admin', 'kasir'] },
+        { name: "Manajemen Order", icon: <BiReceipt />, path: "/admin/orders", roles: ['owner', 'admin', 'kasir', 'dapur'] }, 
+        { name: "Manajemen Banner", icon: <BiImage />, path: "/admin/banners", roles: ['owner', 'admin'] },
+        { name: "Layar Dapur", icon: <BiDish />, path: "/admin/kitchen", roles: ['owner', 'admin', 'dapur'] },
+        { name: "Menu & Varian", icon: <BiFoodMenu />, path: "/admin/menu", roles: ['owner', 'admin'] },    
+        { name: "Manajemen Meja", icon: <BiTable />, path: "/admin/tables", roles: ['owner', 'admin', 'kasir'] },
+        { name: "Promo & Voucher", icon: <BiGift />, path: "/admin/promos", roles: ['owner', 'admin'] },
+        { name: "Manajemen User", icon: <BiGroup />, path: "/admin/users", roles: ['owner', 'admin'] },   
+        { name: "Laporan Owner", icon: <BiBarChartAlt2 />, path: "/admin/reports", roles: ['owner'] },
+        { name: "Audit & Log", icon: <BiShieldQuarter />, path: "/admin/audit-logs", roles: ['owner'] },
+        { name: "Pengaturan Sistem", icon: <BiCog />, path: "/admin/settings", roles: ['owner', 'admin'] },
+        
     ];
+
+    // Filter menu agar hanya menampilkan yang rolenya diizinkan
+    const menuItems = rawMenuItems.filter(item => item.roles.includes(userRole));
 
     // Handle Smart Logout
     const handleLogout = (e) => {
@@ -66,6 +117,8 @@ export default function AdminLayout({ children, title }) {
 
     return (
         <div className="min-h-screen bg-[#F0F2F5] flex font-sans text-slate-800 overflow-hidden">
+            {/* --- TAMBAHKAN WADAH NOTIFIKASI INI --- */}
+            <Toaster position="top-center" richColors />
             
             {/* ========================================= */}
             {/* SIDEBAR NAVIGATION */}
@@ -89,20 +142,30 @@ export default function AdminLayout({ children, title }) {
                     {menuItems.map((item, index) => {
                         const isActive = url.startsWith(item.path);
                         return (
-                            <Link 
-                                key={index} 
-                                href={item.path} 
-                                title={!isSidebarOpen ? item.name : ""}
-                                className={`flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all group ${
-                                    isActive 
-                                    ? "bg-blue-600 text-white shadow-lg shadow-blue-600/30" 
-                                    : "text-slate-400 hover:bg-white/10 hover:text-white"
+                            <Link
+                                key={index}
+                                href={item.path}
+                                className={`flex items-center justify-between px-4 py-3.5 rounded-2xl font-bold transition-all duration-300 group ${
+                                    isActive
+                                        ? "bg-blue-600 text-white shadow-lg shadow-blue-600/30"
+                                        : "text-slate-500 hover:bg-blue-50 hover:text-blue-700"
                                 }`}
                             >
-                                <div className={`text-2xl transition-transform ${!isActive ? 'group-hover:scale-110' : ''}`}>
-                                    {item.icon}
+                                <div className="flex items-center gap-4">
+                                    <span className={`text-2xl transition-transform duration-300 ${isActive ? "scale-110" : "group-hover:scale-110"}`}>
+                                        {item.icon}
+                                    </span>
+                                    <span className={`whitespace-nowrap ${!isSidebarOpen && "hidden"}`}>
+                                        {item.name}
+                                    </span>
                                 </div>
-                                {isSidebarOpen && <span className="font-bold text-sm whitespace-nowrap">{item.name}</span>}
+                                
+                                {/* --- TAMPILKAN BADGE MERAH JIKA ADA PANGGILAN --- */}
+                                {item.badge > 0 && isSidebarOpen && (
+                                    <div className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full animate-pulse shadow-md shadow-red-500/50">
+                                        {item.badge}
+                                    </div>
+                                )}
                             </Link>
                         );
                     })}

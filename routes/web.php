@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\ServiceCallController as AdminServiceCallController;
+use App\Http\Controllers\Admin\KitchenController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -56,6 +57,8 @@ Route::prefix('order/{tableNumber}')->name('customer.')->group(function () {
     Route::get('/status/{orderId}', [OrderController::class, 'showStatus'])->name('order_detail');
 });
 
+// --- ROUTE UNTUK TV DISPLAY ANTRIAN ---
+Route::get('/tv-display', [\App\Http\Controllers\Admin\DisplayController::class, 'index'])->name('tv.display');
 
 // --- 4. GRUP ROUTE ADMIN ---
 Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
@@ -64,17 +67,20 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // Manajemen Menu
+    Route::post('/menu/categories', [App\Http\Controllers\Admin\MenuController::class, 'storeCategory'])->name('menu.categories.store');
+    Route::delete('/menu/categories/{category}', [App\Http\Controllers\Admin\MenuController::class, 'destroyCategory'])->name('menu.categories.destroy');
     Route::get('/menu', [MenuController::class, 'index'])->name('menu.index');
     Route::post('/menu/{product}/toggle', [MenuController::class, 'toggleStatus'])->name('menu.toggle');
     Route::post('/menu/{product}/variants', [MenuController::class, 'syncVariants'])->name('menu.variants.sync'); // <--- TAMBAHKAN INI
     Route::post('/menu', [MenuController::class, 'store'])->name('menu.store');
-    Route::post('/menu/{product}', [MenuController::class, 'update'])->name('menu.update');
+    Route::put('/menu/{product}', [App\Http\Controllers\Admin\MenuController::class, 'update'])->name('menu.update');
     Route::delete('/menu/{product}', [MenuController::class, 'destroy'])->name('menu.destroy');
     
     // POS Kasir
     Route::get('/pos', [PosController::class, 'index'])->name('pos.index');
     Route::post('/pos/{order}/pay', [PosController::class, 'processPayment'])->name('pos.pay');
     Route::post('/pos/{order}/cancel', [PosController::class, 'cancelOrder'])->name('pos.cancel');
+    Route::get('/orders/{order}/print', [PosController::class, 'print'])->name('orders.print');
 
     // --- MANAJEMEN MEJA & QR CODE ---
     Route::get('/tables', [TableController::class, 'index'])->name('tables.index');
@@ -86,11 +92,13 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
 
     // --- MANAJEMEN RIWAYAT ORDER & LAPORAN ---
     Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders.index');
+    // 👇 TAMBAHKAN BARIS INI UNTUK TOMBOL DAPUR 👇
+    Route::patch('/orders/{order}/update-status', [App\Http\Controllers\Admin\OrderController::class, 'updateStatus'])->name('orders.update-status');
 
     // --- MANAJEMEN PROMO ---
     Route::get('/promos', [PromoController::class, 'index'])->name('promos.index');
     Route::post('/promos', [PromoController::class, 'store'])->name('promos.store');
-    Route::post('/promos/{promo}', [PromoController::class, 'update'])->name('promos.update'); // Pakai POST untuk upload file Inertia
+    Route::put('/promos/{promo}', [App\Http\Controllers\Admin\PromoController::class, 'update'])->name('promos.update'); 
     Route::delete('/promos/{promo}', [PromoController::class, 'destroy'])->name('promos.destroy');
     Route::post('/promos/{promo}/toggle', [PromoController::class, 'toggleStatus'])->name('promos.toggle');
 
@@ -104,14 +112,32 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
 
     // --- MANAJEMEN LAPORAN (OWNER VIEW) ---
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+    Route::get('/reports/export/excel', [\App\Http\Controllers\Admin\ReportController::class, 'exportExcel'])->name('reports.export.excel');
+    Route::get('/reports/export/pdf', [\App\Http\Controllers\Admin\ReportController::class, 'exportPdf'])->name('reports.export.pdf');
 
     // --- AUDIT & LOG AKTIVITAS ---
     Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit.index');
+    Route::get('/audit/export', [\App\Http\Controllers\Admin\AuditLogController::class, 'exportCsv'])->name('audit.export');
 
     // --- PANGGILAN PELAYAN (CALL WAITER) ---
+    Route::get('/api/service-calls/pending', [AdminServiceCallController::class, 'getPending'])->name('api.service-calls.pending');
     Route::get('/service-calls', [AdminServiceCallController::class, 'index'])->name('service-calls.index');
     Route::post('/service-calls/{serviceCall}/resolve', [AdminServiceCallController::class, 'resolve'])->name('service-calls.resolve');
+
+    // --- KITCHEN DISPLAY (DAPUR) ---
+    Route::get('/kitchen', [KitchenController::class, 'index'])->name('kitchen.index'); 
+
+    // --- MANAJEMEN BANNER EVENT ---
+    Route::get('/banners', [\App\Http\Controllers\Admin\BannerController::class, 'index'])->name('banners.index');
+    Route::post('/banners', [\App\Http\Controllers\Admin\BannerController::class, 'store'])->name('banners.store');
+    Route::post('/banners/{banner}/toggle', [\App\Http\Controllers\Admin\BannerController::class, 'toggleStatus'])->name('banners.toggle');
+    Route::delete('/banners/{banner}', [\App\Http\Controllers\Admin\BannerController::class, 'destroy'])->name('banners.destroy');
+
+    // Pengaturan Sistem (Pajak & Service)
+    Route::get('/settings', [\App\Http\Controllers\Admin\SettingController::class, 'index'])->name('settings.index');
+    Route::post('/settings', [\App\Http\Controllers\Admin\SettingController::class, 'update'])->name('settings.update');
 });
+
 
 
 // --- 5. ROUTE PROFILE BAWAAN BREEZE (YANG MEMBUAT ERROR ZIGGY JIKA DIHAPUS) ---
