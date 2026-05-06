@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 
 const formatRupiah = (number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(number);
 const formatDate = (dateString) => new Date(dateString).toLocaleString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -86,9 +86,13 @@ export default function Print({ order, type }) {
                         const discountAmount = order.promoUsage ? parseFloat(order.promoUsage.discount_applied) : 0;
 
                         // 3. Hitung Balik Pajak & Service
-                        const netBase = parseFloat(order.total_price) / 1.15;
-                        const tax = netBase * 0.10;
-                        const service = netBase * 0.05;
+                        const taxRate = (app_settings?.tax_percentage || 10) / 100;
+                        const serviceRate = (app_settings?.service_percentage || 5) / 100;
+                        const combinedRate = 1 + taxRate + serviceRate;
+
+                        const netBase = parseFloat(order.total_price) / combinedRate;
+                        const tax = netBase * taxRate;
+                        const service = netBase * serviceRate;
 
                         return (
                             <div className="mb-4 text-xs border-b-2 border-black pb-4 border-dashed font-bold">
@@ -98,8 +102,14 @@ export default function Print({ order, type }) {
                                     <div className="flex justify-between mb-1"><span>Diskon:</span> <span>-{formatRupiah(discountAmount)}</span></div>
                                 )}
                                 
-                                <div className="flex justify-between mb-1"><span>PB1 (10%):</span> <span>{formatRupiah(tax)}</span></div>
-                                <div className="flex justify-between mb-1"><span>Service (5%):</span> <span>{formatRupiah(service)}</span></div>
+                                <div className="flex justify-between mb-1">
+                                    <span>PB1 ({app_settings?.tax_percentage || 10}%):</span> 
+                                    <span>{formatRupiah(tax)}</span>
+                                </div>
+                                <div className="flex justify-between mb-1">
+                                    <span>Service ({app_settings?.service_percentage || 5}%):</span> 
+                                    <span>{formatRupiah(service)}</span>
+                                </div>
                                 
                                 <div className="flex justify-between font-black text-base my-2"><span>TOTAL:</span> <span>{formatRupiah(order.total_price)}</span></div>
                                 

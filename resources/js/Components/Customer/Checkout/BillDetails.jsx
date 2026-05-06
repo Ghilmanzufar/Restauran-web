@@ -1,9 +1,13 @@
 import React from "react";
 import { BiSolidDiscount } from "react-icons/bi";
+import { usePage } from "@inertiajs/react"; // <-- TAMBAHKAN IMPORT INI
 
 const formatRupiah = (number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(number);
 
 export default function BillDetails({ summary, discountAmount, activePromo, tax, service, grandTotal }) {
+    // <-- PANGGIL DATA SETTING DI SINI
+    const { app_settings } = usePage().props; 
+
     return (
         <section className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
             <h2 className="text-sm font-bold text-slate-900 mb-4">Rincian Biaya</h2>
@@ -20,8 +24,16 @@ export default function BillDetails({ summary, discountAmount, activePromo, tax,
                     </div>
                 )}
 
-                <div className="flex justify-between text-gray-500"><span>PB1 (10%)</span><span>{formatRupiah(tax)}</span></div>
-                <div className="flex justify-between text-gray-500"><span>Service (5%)</span><span>{formatRupiah(service)}</span></div>
+                {/* 👇 PERBAIKAN: TEKS PAJAK SEKARANG DINAMIS MEMBACA DATABASE 👇 */}
+                <div className="flex justify-between text-gray-500">
+                    <span>PB1 ({app_settings?.tax_percentage ?? 10}%)</span>
+                    <span>{formatRupiah(tax)}</span>
+                </div>
+                <div className="flex justify-between text-gray-500">
+                    <span>Service ({app_settings?.service_percentage ?? 5}%)</span>
+                    <span>{formatRupiah(service)}</span>
+                </div>
+                {/* 👆 ======================================================== 👆 */}
                 
                 <div className="h-[1px] bg-dashed bg-gray-200 my-2"></div>
                 

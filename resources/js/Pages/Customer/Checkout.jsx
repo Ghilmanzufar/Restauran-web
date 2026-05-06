@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Head, router } from "@inertiajs/react";
+import { Head, router, usePage } from "@inertiajs/react"; // Pastikan usePage di-import
 import { CartStore } from "@/Utils/CartStore"; 
 import { BiArrowBack, BiLockAlt } from "react-icons/bi";
 import { Toaster, toast } from "sonner"; 
@@ -18,7 +18,8 @@ export default function Checkout({ table }) {
     const [summary, setSummary] = useState({ totalQty: 0, totalPrice: 0 });
     const [activePromo, setActivePromo] = useState(null);
     const [discountAmount, setDiscountAmount] = useState(0);
-    
+    const { app_settings } = usePage().props;
+
     // Form State
     const [customerName, setCustomerName] = useState("");
     const [whatsappNumber, setWhatsappNumber] = useState("");
@@ -55,8 +56,16 @@ export default function Checkout({ table }) {
 
     // --- 3. CALCULATIONS ---
     const subtotalAfterDiscount = summary.totalPrice - discountAmount;
-    const tax = subtotalAfterDiscount * 0.10;
-    const service = subtotalAfterDiscount * 0.05;
+    
+    // 1. Tarik persentase dari database (atau gunakan default)
+    const taxRate = (app_settings?.tax_percentage || 10) / 100;
+    const serviceRate = (app_settings?.service_percentage || 5) / 100;
+
+    // 2. Hitung nominal aslinya (VARIABEL INI YANG SEBELUMNYA HILANG)
+    const tax = subtotalAfterDiscount * taxRate;
+    const service = subtotalAfterDiscount * serviceRate;
+
+    // 3. Totalkan semuanya
     const grandTotal = subtotalAfterDiscount + tax + service;
 
     // --- 4. HANDLERS ---

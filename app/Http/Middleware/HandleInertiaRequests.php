@@ -34,6 +34,11 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
             ],
+            'app_settings' => [
+                'tax_percentage' => (float) \App\Models\Setting::getValue('tax_percentage', 10),
+                'service_percentage' => (float) \App\Models\Setting::getValue('service_percentage', 5),
+                'store_name' => \App\Models\Setting::getValue('store_name', 'RESTOPRO'),
+            ],
         ];
     }
 }

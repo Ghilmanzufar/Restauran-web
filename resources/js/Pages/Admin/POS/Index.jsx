@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Head, router } from "@inertiajs/react";
+import { Head, router, usePage } from "@inertiajs/react"; // <-- Tambahkan usePage
 import { BiDish, BiPrinter, BiWallet, BiCheckCircle } from "react-icons/bi";
 import { Toaster, toast } from "sonner";
 import axios from "axios"; // <--- TAMBAHKAN IMPORT AXIOS
@@ -19,6 +19,7 @@ export default function POSIndex({ initialOrders, tables }) {
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [showCancelModal, setShowCancelModal] = useState(false);
     const searchInputRef = useRef(null);
+    const { app_settings } = usePage().props; // <-- Panggil pengaturan global
 
     // 2. AUTO REFRESH TRANSAKSI (POLLING ORDER)
     useEffect(() => {
@@ -218,9 +219,13 @@ export default function POSIndex({ initialOrders, tables }) {
                                         }, 0);
 
                                         const discountAmount = selectedOrder.promoUsage ? parseFloat(selectedOrder.promoUsage.discount_applied) : 0;
-                                        const netBase = parseFloat(selectedOrder.total_price) / 1.15;
-                                        const tax = netBase * 0.10;
-                                        const service = netBase * 0.05;
+                                        const taxRate = (app_settings?.tax_percentage || 10) / 100;
+                                        const serviceRate = (app_settings?.service_percentage || 5) / 100;
+                                        const combinedRate = 1 + taxRate + serviceRate;
+
+                                        const netBase = parseFloat(selectedOrder.total_price) / combinedRate;
+                                        const tax = netBase * taxRate;
+                                        const service = netBase * serviceRate;
 
                                         return (
                                             <div className="bg-slate-50 p-6 border-t border-slate-200">
@@ -238,11 +243,11 @@ export default function POSIndex({ initialOrders, tables }) {
                                                     )}
 
                                                     <div className="flex justify-between text-sm font-bold text-slate-500">
-                                                        <span>PB1 (10%)</span>
+                                                        <span>PB1 ({app_settings?.tax_percentage || 10}%)</span>
                                                         <span>{formatRupiah(tax)}</span>
                                                     </div>
                                                     <div className="flex justify-between text-sm font-bold text-slate-500">
-                                                        <span>Service (5%)</span>
+                                                        <span>Service ({app_settings?.service_percentage || 5}%)</span>
                                                         <span>{formatRupiah(service)}</span>
                                                     </div>
                                                 </div>

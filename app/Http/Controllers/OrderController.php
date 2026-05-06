@@ -187,8 +187,7 @@ class OrderController extends Controller
 
     public function store(Request $request, string $tableNumber)
     {
-        // 1. LOG START
-        Log::info("🔥 [ORDER] Request dari Meja: $tableNumber");
+        
 
         // 2. VALIDASI DATA
         // 2. VALIDASI DATA
@@ -328,8 +327,14 @@ class OrderController extends Controller
 
             // D. HITUNG FINAL
             $subtotalAfterDiscount = $grossSubtotal - $discountAmount;
-            $tax = $subtotalAfterDiscount * 0.10;     
-            $service = $subtotalAfterDiscount * 0.05; 
+
+            // Tarik persentase dari database
+            $taxRate = \App\Models\Setting::getValue('tax_percentage', 10) / 100;
+            $serviceRate = \App\Models\Setting::getValue('service_percentage', 5) / 100;
+
+            // Hitung nominal pajak & service
+            $tax = $subtotalAfterDiscount * $taxRate;     
+            $service = $subtotalAfterDiscount * $serviceRate; 
             
             $grandTotal = $subtotalAfterDiscount + $tax + $service;
 
